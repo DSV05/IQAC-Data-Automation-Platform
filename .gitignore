@@ -1,0 +1,36 @@
+# Environment secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+*.egg
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Docker volumes (local dev)
+postgres_data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (user data — store in object storage in production)
+backend/uploads/
+
+# Alembic auto-generated (keep versions/ but ignore pycache)
+backend/alembic/__pycache__/
