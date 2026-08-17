@@ -42,6 +42,17 @@ class UploadRepository(BaseRepository[UploadJob]):
     ) -> UploadJob:
         return await self.update(job, status=status, **kwargs)
 
+    async def delete_by_statuses(self, statuses: list[UploadStatus] | None = None) -> int:
+        """Delete all upload jobs, or only those matching the given statuses."""
+        from sqlalchemy import delete as sa_delete
+
+        stmt = sa_delete(UploadJob)
+        if statuses:
+            stmt = stmt.where(UploadJob.status.in_(statuses))
+        result = await self.db.execute(stmt)
+        await self.db.commit()
+        return result.rowcount or 0
+
     async def get_stats(self) -> dict:
         """Dashboard-level upload statistics."""
         result = await self.db.execute(

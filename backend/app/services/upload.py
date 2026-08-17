@@ -211,6 +211,27 @@ class UploadService:
         filename = f"error_report_{job.entity_type.value}_{job.academic_year}_{job.id.hex[:8]}.xlsx"
         return report_bytes, filename
 
+    async def delete_job(self, job_id: uuid.UUID) -> None:
+        """Remove a single upload job record (and its saved file, if present)."""
+        job = await self.repo.get_with_uploader(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Upload job not found")
+        if job.file_path:
+            try:
+                Path(job.file_path).unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Could not remove upload file", path=job.file_path)
+        await self.repo.delete(job)
+
+    async def clear_jobs(self, statuses: list[str] | None = None) -> int:
+        """
+        Bulk-remove upload job records.
+        statuses=None clears everything; otherwise only jobs whose status is
+        in the given list (e.g. ["failed", "processing"]) are removed.
+        """
+        status_enums = [UploadStatus(s) for s in statuses] if statuses else None
+        return await self.repo.delete_by_statuses(status_enums)
+
     async def list_jobs(self, page=1, size=20, entity_type=None, status_filter=None) -> dict:
         status_enum = UploadStatus(status_filter) if status_filter else None
         jobs, total = await self.repo.list_for_user(

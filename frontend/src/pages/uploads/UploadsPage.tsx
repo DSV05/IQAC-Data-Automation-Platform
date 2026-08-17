@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Upload, Download, FileSpreadsheet, CheckCircle,
-  XCircle, AlertTriangle, Clock, RefreshCw,
+  XCircle, AlertTriangle, Clock, RefreshCw, X, Trash2,
 } from "lucide-react";
 import { uploadService } from "@/services/upload.service";
 import { FileDropzone } from "@/components/uploads/FileDropzone";
@@ -21,11 +21,11 @@ const ENTITY_TYPES = [
   { value: "mous",           label: "MoUs",              template: true },
   { value: "events",         label: "Events",            template: true },
   { value: "energy",         label: "Energy Consumption",template: true },
-  { value: "water",          label: "Water Consumption", template: false },
-  { value: "waste",          label: "Waste Management",  template: false },
-  { value: "awards",         label: "Awards",            template: false },
+  { value: "water",          label: "Water Consumption", template: true },
+  { value: "waste",          label: "Waste Management",  template: true },
+  { value: "awards",         label: "Awards",            template: true },
   { value: "consultancy",    label: "Consultancy",       template: false },
-  { value: "sdg_activities", label: "SDG Activities",    template: false },
+  { value: "sdg_activities", label: "SDG Activities",    template: true },
 ];
 
 // Entities whose natural key (enrollment_no, employee_id) lets Update Mode
@@ -58,11 +58,49 @@ export default function UploadsPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<any>(null);
 
+  const [clearing, setClearing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ["upload-jobs"],
     queryFn: () => uploadService.listJobs({ size: 20 }),
     refetchInterval: 5000,
   });
+
+  const stuckCount = jobsData?.items?.filter((j: any) =>
+    ["failed", "processing"].includes(j.status)
+  ).length ?? 0;
+
+  const handleClearStuck = async () => {
+    setClearing(true);
+    try {
+      await uploadService.clearJobs(["failed", "processing"]);
+      qc.invalidateQueries({ queryKey: ["upload-jobs"] });
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!confirm("Clear all upload history? This cannot be undone.")) return;
+    setClearing(true);
+    try {
+      await uploadService.clearJobs();
+      qc.invalidateQueries({ queryKey: ["upload-jobs"] });
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const handleDeleteJob = async (jobId: string) => {
+    setDeletingId(jobId);
+    try {
+      await uploadService.deleteJob(jobId);
+      qc.invalidateQueries({ queryKey: ["upload-jobs"] });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleUpload = async () => {
     if (!file) return;
@@ -256,7 +294,29 @@ export default function UploadsPage() {
         {/* Right — upload history */}
         <div className="lg:col-span-2">
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <h2 className="font-semibold text-foreground">Recent Uploads</h2>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="font-semibold text-foreground">Recent Uploads</h2>
+              {!!jobsData?.items?.length && (
+                <div className="flex items-center gap-3">
+                  {stuckCount > 0 && (
+                    <button
+                      onClick={handleClearStuck}
+                      disabled={clearing}
+                      className="text-xs font-medium text-destructive hover:underline disabled:opacity-50"
+                    >
+                      Clear failed/processing ({stuckCount})
+                    </button>
+                  )}
+                  <button
+                    onClick={handleClearAll}
+                    disabled={clearing}
+                    className="text-xs font-medium text-muted-foreground hover:text-destructive hover:underline disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3 h-3" /> Clear all
+                  </button>
+                </div>
+              )}
+            </div>
 
             {jobsLoading ? (
               <div className="space-y-2">
@@ -284,10 +344,20 @@ export default function UploadsPage() {
                           {ENTITY_TYPES.find((e) => e.value === job.entity_type)?.label} · {job.academic_year}
                         </p>
                       </div>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${STATUS_COLORS[job.status as keyof typeof STATUS_COLORS]}`}>
-                        {STATUS_ICONS[job.status as keyof typeof STATUS_ICONS]}
-                        {job.status}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${STATUS_COLORS[job.status as keyof typeof STATUS_COLORS]}`}>
+                          {STATUS_ICONS[job.status as keyof typeof STATUS_ICONS]}
+                          {job.status}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteJob(job.id)}
+                          disabled={deletingId === job.id}
+                          title="Remove from history"
+                          className="p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition disabled:opacity-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">

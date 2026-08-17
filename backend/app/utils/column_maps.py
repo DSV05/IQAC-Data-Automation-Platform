@@ -147,6 +147,55 @@ EVENT_COLUMNS: list[ColumnSpec] = [
     ColumnSpec("student_participants",  "int",  False, ["student count", "student participants"]),
 ]
 
+# ── Water ─────────────────────────────────────────────────────────────────────
+
+WATER_COLUMNS: list[ColumnSpec] = [
+    ColumnSpec("municipal_kl",           "float", False, ["municipal", "municipal water", "municipal kl"]),
+    ColumnSpec("borewell_kl",            "float", False, ["borewell", "borewell water", "groundwater"]),
+    ColumnSpec("rainwater_harvested_kl", "float", False, ["rainwater", "rainwater harvested", "rwh"]),
+    ColumnSpec("recycled_treated_kl",    "float", False, ["recycled", "treated water", "recycled treated"]),
+    ColumnSpec("month",                  "int",   False, ["month", "month no"]),
+    ColumnSpec("cost_inr",               "float", False, ["cost", "water cost", "cost inr"]),
+]
+
+# ── Waste ─────────────────────────────────────────────────────────────────────
+
+WASTE_COLUMNS: list[ColumnSpec] = [
+    ColumnSpec("waste_type",       "str",   True,  ["waste type", "type", "category"]),
+    ColumnSpec("generated_kg",     "float", False, ["generated", "generated kg", "quantity generated"]),
+    ColumnSpec("recycled_kg",      "float", False, ["recycled", "recycled kg"]),
+    ColumnSpec("disposed_kg",      "float", False, ["disposed", "disposed kg"]),
+    ColumnSpec("disposal_method",  "str",   False, ["disposal method", "method"]),
+    ColumnSpec("vendor_name",      "str",   False, ["vendor", "vendor name", "agency"]),
+    ColumnSpec("month",            "int",   False, ["month", "month no"]),
+    ColumnSpec("cost_inr",         "float", False, ["cost", "cost inr"]),
+]
+
+# ── Awards ────────────────────────────────────────────────────────────────────
+
+AWARD_COLUMNS: list[ColumnSpec] = [
+    ColumnSpec("recipient_name",  "str",   True,  ["recipient", "recipient name", "name"]),
+    ColumnSpec("recipient_type",  "str",   True,  ["recipient type", "type"]),
+    ColumnSpec("title",           "str",   True,  ["award", "award title", "title"]),
+    ColumnSpec("awarding_body",   "str",   True,  ["awarding body", "given by", "agency"]),
+    ColumnSpec("award_date",      "date",  False, ["date", "award date"]),
+    ColumnSpec("category",        "str",   False, ["category"]),
+    ColumnSpec("is_international","bool",  False, ["international", "is international"]),
+    ColumnSpec("prize_amount",    "float", False, ["prize amount", "prize money", "amount"]),
+]
+
+# ── SDG Activities ────────────────────────────────────────────────────────────
+
+SDG_COLUMNS: list[ColumnSpec] = [
+    ColumnSpec("title",               "str",   True,  ["activity", "activity title", "title"]),
+    ColumnSpec("sdg_primary",         "int",   True,  ["sdg", "sdg goal", "primary sdg"]),
+    ColumnSpec("activity_type",       "str",   True,  ["type", "activity type"]),
+    ColumnSpec("description",         "str",   False, ["description", "details"]),
+    ColumnSpec("beneficiaries_count", "int",   False, ["beneficiaries", "beneficiaries count"]),
+    ColumnSpec("investment_inr",      "float", False, ["investment", "investment inr", "amount"]),
+    ColumnSpec("outcome",             "str",   False, ["outcome", "impact"]),
+]
+
 # ── Registry: entity type → column spec list ──────────────────────────────────
 
 ENTITY_COLUMNS: dict[str, list[ColumnSpec]] = {
@@ -158,6 +207,10 @@ ENTITY_COLUMNS: dict[str, list[ColumnSpec]] = {
     "energy":         ENERGY_COLUMNS,
     "mous":           MOU_COLUMNS,
     "events":         EVENT_COLUMNS,
+    "water":          WATER_COLUMNS,
+    "waste":          WASTE_COLUMNS,
+    "awards":         AWARD_COLUMNS,
+    "sdg_activities": SDG_COLUMNS,
 }
 
 def get_column_specs(entity_type: str) -> list[ColumnSpec]:

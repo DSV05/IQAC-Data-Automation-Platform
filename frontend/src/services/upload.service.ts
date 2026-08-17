@@ -53,6 +53,18 @@ export const uploadService = {
     });
     downloadBlob(res, `template_${entityType}.xlsx`);
   },
+
+  deleteJob: async (jobId: string) => {
+    await apiClient.delete(`/uploads/${jobId}`);
+  },
+
+  // statuses: e.g. ["failed", "processing"]. Omit/undefined clears everything.
+  clearJobs: async (statuses?: string[]) => {
+    const res = await apiClient.delete("/uploads/clear", {
+      params: statuses?.length ? { status: statuses.join(",") } : undefined,
+    });
+    return res.data as { deleted: number };
+  },
 };
 
 // Triggers a browser download from an authenticated axios blob response,

@@ -10,7 +10,7 @@ GET  /api/v1/uploads/templates/{entity} — download blank template
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,6 +78,34 @@ async def list_upload_jobs(
                                    entity_type=entity_type, status_filter=status)
 
 
+# ── Clear jobs (bulk) ─────────────────────────────────────────────────────────
+# NOTE: registered before "/{job_id}" so "clear" isn't parsed as a job id.
+
+@router.delete("/clear")
+async def clear_upload_jobs(
+    status: Optional[str] = Query(
+        None,
+        description="Comma-separated statuses to clear (e.g. 'failed,processing'). Omit to clear all.",
+    ),
+    current_user: User = Depends(require_permission("uploads:create")),
+    service: UploadService = Depends(get_upload_service),
+):
+    statuses = [s.strip() for s in status.split(",")] if status else None
+    deleted = await service.clear_jobs(statuses)
+    return {"deleted": deleted}
+
+
+# ── Delete a single job ───────────────────────────────────────────────────────
+
+@router.delete("/{job_id}", status_code=204)
+async def delete_upload_job(
+    job_id: uuid.UUID,
+    current_user: User = Depends(require_permission("uploads:create")),
+    service: UploadService = Depends(get_upload_service),
+):
+    await service.delete_job(job_id)
+
+
 # ── Get job details ───────────────────────────────────────────────────────────
 
 @router.get("/{job_id}")
@@ -135,8 +163,17 @@ async def download_error_report(
 async def download_template(
     entity_type: str,
     current_user: CurrentUser,
+    request: Request,
 ):
-    """Download a blank Excel template with correct column headers."""
+    """
+    Download a blank Excel template with correct column headers.
+
+    Accepts optional query params of the form `label_<db_field>=Custom Label`
+    (e.g. `?label_impact_factor=IF`) to override the header text shown for
+    that column — used by the Master Data "Edit Template" admin feature.
+    Only the displayed header changes; the underlying db_field/order is
+    untouched, so uploads still map correctly regardless of label overrides.
+    """
     from app.utils.column_maps import get_column_specs
     import xlsxwriter
     import io
@@ -145,6 +182,13 @@ async def download_template(
     if not specs:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"No template for entity: {entity_type}")
+
+    # Pull label_<field>=... overrides from the query string
+    label_overrides = {
+        key[len("label_"):]: value
+        for key, value in request.query_params.items()
+        if key.startswith("label_") and value
+    }
 
     output = io.BytesIO()
     wb = xlsxwriter.Workbook(output, {"in_memory": True})
@@ -161,7 +205,7 @@ async def download_template(
 
     # Headers
     for col_idx, spec in enumerate(specs):
-        label = spec.db_field.replace("_", " ").title()
+        label = label_overrides.get(spec.db_field, spec.db_field.replace("_", " ").title())
         if spec.required:
             label += " *"
         fmt = required_fmt if spec.required else header_fmt

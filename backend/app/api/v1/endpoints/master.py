@@ -288,12 +288,13 @@ async def delete_research(
 async def list_patents(
     academic_year: str = Query(...),
     department_id: Optional[uuid.UUID] = None,
+    search: Optional[str] = None,
     page: int = 1, size: int = 20,
     current_user: User = Depends(require_permission("research:read")),
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await PatentRepository(db).list_by_year(academic_year, department_id, page, size)
+    items, total = await PatentRepository(db).list_by_year(academic_year, department_id, page, size, search)
     return s.PaginatedPatents(
         items=[s.PatentRead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -371,12 +372,13 @@ async def placement_stats(
 @router.get("/energy", response_model=s.PaginatedEnergy)
 async def list_energy(
     academic_year: str = Query(...),
+    search: Optional[str] = None,
     page: int = 1, size: int = 50,
     current_user: User = Depends(require_permission("dashboard:read")),
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await EnergyRepository(db).list_by_year(academic_year, page, size)
+    items, total = await EnergyRepository(db).list_by_year(academic_year, page, size, search)
     return s.PaginatedEnergy(
         items=[s.EnergyRead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -409,12 +411,13 @@ async def energy_totals(
 async def list_mous(
     academic_year: str = Query(...),
     department_id: Optional[uuid.UUID] = None,
+    search: Optional[str] = None,
     page: int = 1, size: int = 20,
     current_user: User = Depends(require_permission("faculty:read")),
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await MoURepository(db).list_by_year(academic_year, department_id, page, size)
+    items, total = await MoURepository(db).list_by_year(academic_year, department_id, page, size, search)
     return s.PaginatedMoUs(
         items=[s.MoURead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -438,12 +441,13 @@ async def create_mou(
 async def list_events(
     academic_year: str = Query(...),
     department_id: Optional[uuid.UUID] = None,
+    search: Optional[str] = None,
     page: int = 1, size: int = 20,
     current_user: User = Depends(require_permission("faculty:read")),
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await EventRepository(db).list_by_year(academic_year, department_id, page, size)
+    items, total = await EventRepository(db).list_by_year(academic_year, department_id, page, size, search)
     return s.PaginatedEvents(
         items=[s.EventRead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -488,12 +492,13 @@ async def create_accreditation(
 async def list_sdg(
     academic_year: str = Query(...),
     sdg_goal: Optional[int] = Query(None, ge=1, le=17),
+    search: Optional[str] = None,
     page: int = 1, size: int = 20,
     current_user: User = Depends(require_permission("faculty:read")),
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await SDGRepository(db).list_by_year(academic_year, sdg_goal, page, size)
+    items, total = await SDGRepository(db).list_by_year(academic_year, sdg_goal, page, size, search)
     return s.PaginatedSDG(
         items=[s.SDGActivityRead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -516,12 +521,13 @@ async def create_sdg_activity(
 @router.get("/water")
 async def list_water(
     academic_year: str = Query(...),
+    search: Optional[str] = None,
     page: int = 1, size: int = 50,
     current_user: User = Depends(require_permission("dashboard:read")),
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await WaterRepository(db).list_by_year(academic_year, page, size)
+    items, total = await WaterRepository(db).list_by_year(academic_year, page, size, search)
     return {
         "items": [s.WaterRead.model_validate(i) for i in items],
         "total": total, "page": page, "size": size,
@@ -574,12 +580,13 @@ async def delete_water(
 @router.get("/waste")
 async def list_waste(
     academic_year: str = Query(...),
+    search: Optional[str] = None,
     page: int = 1, size: int = 50,
     current_user: User = Depends(require_permission("dashboard:read")),
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await WasteRepository(db).list_by_year(academic_year, page, size)
+    items, total = await WasteRepository(db).list_by_year(academic_year, page, size, search)
     return {
         "items": [s.WasteRead.model_validate(i) for i in items],
         "total": total, "page": page, "size": size,
@@ -633,12 +640,13 @@ async def delete_waste(
 async def list_awards(
     academic_year: str = Query(...),
     department_id: Optional[uuid.UUID] = None,
+    search: Optional[str] = None,
     page: int = 1, size: int = 20,
     current_user: User = Depends(require_permission("faculty:read")),
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await AwardRepository(db).list_by_year(academic_year, department_id, page, size)
+    items, total = await AwardRepository(db).list_by_year(academic_year, department_id, page, size, search)
     return {
         "items": [s.AwardRead.model_validate(i) for i in items],
         "total": total, "page": page, "size": size,

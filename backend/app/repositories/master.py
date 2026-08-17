@@ -14,6 +14,31 @@ from app.models.institutional import Budget, Event, Infrastructure, MoU
 from app.models.green import EnergyConsumption, GreenInitiative, WasteManagement, WaterConsumption
 from app.models.awards import Accreditation, Award, Consultancy, SDGActivity
 
+# Maps a free-text month search ("Sep", "September", "9") to its 1-12 int,
+# used by entities (Energy/Water/Waste) whose only "date" column is an
+# integer month rather than a text field.
+_MONTH_NAME_TO_NUM = {
+    name.lower(): i
+    for i, names in enumerate(
+        [
+            ("jan", "january"), ("feb", "february"), ("mar", "march"),
+            ("apr", "april"), ("may",), ("jun", "june"),
+            ("jul", "july"), ("aug", "august"), ("sep", "sept", "september"),
+            ("oct", "october"), ("nov", "november"), ("dec", "december"),
+        ],
+        start=1,
+    )
+    for name in names
+}
+
+
+def _search_month(search: str) -> int | None:
+    """Resolve a free-text month search term to 1-12, or None if it isn't one."""
+    s = search.strip().lower()
+    if s.isdigit() and 1 <= int(s) <= 12:
+        return int(s)
+    return _MONTH_NAME_TO_NUM.get(s)
+
 
 # ── Faculty ───────────────────────────────────────────────────────────────────
 
@@ -168,11 +193,20 @@ class PatentRepository(BaseRepository[Patent]):
 
     async def list_by_year(
         self, academic_year: str, department_id: uuid.UUID | None = None,
-        page: int = 1, size: int = 20,
+        page: int = 1, size: int = 20, search: str | None = None,
     ) -> tuple[list[Patent], int]:
         filters = [Patent.academic_year == academic_year]
         if department_id:
             filters.append(Patent.department_id == department_id)
+        if search:
+            p = f"%{search}%"
+            filters.append(
+                or_(
+                    Patent.title.ilike(p),
+                    Patent.inventors.ilike(p),
+                    Patent.application_number.ilike(p),
+                )
+            )
         return await self.list(page=page, size=size, filters=filters)
 
 
@@ -283,11 +317,20 @@ class MoURepository(BaseRepository[MoU]):
 
     async def list_by_year(
         self, academic_year: str, department_id: uuid.UUID | None = None,
-        page: int = 1, size: int = 20,
+        page: int = 1, size: int = 20, search: str | None = None,
     ) -> tuple[list[MoU], int]:
         filters = [MoU.academic_year == academic_year]
         if department_id:
             filters.append(MoU.department_id == department_id)
+        if search:
+            p = f"%{search}%"
+            filters.append(
+                or_(
+                    MoU.partner_name.ilike(p),
+                    MoU.partner_country.ilike(p),
+                    MoU.purpose.ilike(p),
+                )
+            )
         return await self.list(page=page, size=size, filters=filters)
 
 
@@ -296,11 +339,16 @@ class EventRepository(BaseRepository[Event]):
 
     async def list_by_year(
         self, academic_year: str, department_id: uuid.UUID | None = None,
-        page: int = 1, size: int = 20,
+        page: int = 1, size: int = 20, search: str | None = None,
     ) -> tuple[list[Event], int]:
         filters = [Event.academic_year == academic_year]
         if department_id:
             filters.append(Event.department_id == department_id)
+        if search:
+            p = f"%{search}%"
+            filters.append(
+                or_(Event.title.ilike(p), Event.venue.ilike(p))
+            )
         return await self.list(page=page, size=size, filters=filters)
 
 
@@ -311,11 +359,17 @@ class EnergyRepository(BaseRepository[EnergyConsumption]):
 
     async def list_by_year(
         self, academic_year: str, page: int = 1, size: int = 50,
+        search: str | None = None,
     ) -> tuple[list[EnergyConsumption], int]:
-        return await self.list(
-            page=page, size=size,
-            filters=[EnergyConsumption.academic_year == academic_year],
-        )
+        filters = [EnergyConsumption.academic_year == academic_year]
+        if search:
+            month_num = _search_month(search)
+            if month_num is not None:
+                filters.append(EnergyConsumption.month == month_num)
+            else:
+                # No text columns to search on Energy — a non-month term matches nothing.
+                filters.append(EnergyConsumption.id == None)  # noqa: E711
+        return await self.list(page=page, size=size, filters=filters)
 
     async def totals_by_year(self, academic_year: str) -> dict:
         from sqlalchemy import select, func
@@ -347,11 +401,16 @@ class WaterRepository(BaseRepository[WaterConsumption]):
 
     async def list_by_year(
         self, academic_year: str, page: int = 1, size: int = 50,
+        search: str | None = None,
     ) -> tuple[list[WaterConsumption], int]:
-        return await self.list(
-            page=page, size=size,
-            filters=[WaterConsumption.academic_year == academic_year],
-        )
+        filters = [WaterConsumption.academic_year == academic_year]
+        if search:
+            month_num = _search_month(search)
+            if month_num is not None:
+                filters.append(WaterConsumption.month == month_num)
+            else:
+                filters.append(WaterConsumption.remarks.ilike(f"%{search}%"))
+        return await self.list(page=page, size=size, filters=filters)
 
 
 class WasteRepository(BaseRepository[WasteManagement]):
@@ -359,11 +418,23 @@ class WasteRepository(BaseRepository[WasteManagement]):
 
     async def list_by_year(
         self, academic_year: str, page: int = 1, size: int = 50,
+        search: str | None = None,
     ) -> tuple[list[WasteManagement], int]:
-        return await self.list(
-            page=page, size=size,
-            filters=[WasteManagement.academic_year == academic_year],
-        )
+        filters = [WasteManagement.academic_year == academic_year]
+        if search:
+            month_num = _search_month(search)
+            if month_num is not None:
+                filters.append(WasteManagement.month == month_num)
+            else:
+                p = f"%{search}%"
+                filters.append(
+                    or_(
+                        WasteManagement.waste_type.ilike(p),
+                        WasteManagement.disposal_method.ilike(p),
+                        WasteManagement.vendor_name.ilike(p),
+                    )
+                )
+        return await self.list(page=page, size=size, filters=filters)
 
 
 class GreenInitiativeRepository(BaseRepository[GreenInitiative]):
@@ -385,11 +456,20 @@ class AwardRepository(BaseRepository[Award]):
 
     async def list_by_year(
         self, academic_year: str, department_id: uuid.UUID | None = None,
-        page: int = 1, size: int = 20,
+        page: int = 1, size: int = 20, search: str | None = None,
     ) -> tuple[list[Award], int]:
         filters = [Award.academic_year == academic_year]
         if department_id:
             filters.append(Award.department_id == department_id)
+        if search:
+            p = f"%{search}%"
+            filters.append(
+                or_(
+                    Award.recipient_name.ilike(p),
+                    Award.title.ilike(p),
+                    Award.awarding_body.ilike(p),
+                )
+            )
         return await self.list(page=page, size=size, filters=filters)
 
 
@@ -421,9 +501,18 @@ class SDGRepository(BaseRepository[SDGActivity]):
 
     async def list_by_year(
         self, academic_year: str, sdg_goal: int | None = None,
-        page: int = 1, size: int = 20,
+        page: int = 1, size: int = 20, search: str | None = None,
     ) -> tuple[list[SDGActivity], int]:
         filters = [SDGActivity.academic_year == academic_year]
         if sdg_goal:
             filters.append(SDGActivity.sdg_primary == sdg_goal)
+        if search:
+            p = f"%{search}%"
+            filters.append(
+                or_(
+                    SDGActivity.title.ilike(p),
+                    SDGActivity.description.ilike(p),
+                    SDGActivity.outcome.ilike(p),
+                )
+            )
         return await self.list(page=page, size=size, filters=filters)
