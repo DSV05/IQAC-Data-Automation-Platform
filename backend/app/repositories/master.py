@@ -1,7 +1,7 @@
 """Master data repositories — typed wrappers over BaseRepository."""
 import uuid
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -182,7 +182,7 @@ class ResearchRepository(BaseRepository[ResearchPublication]):
                 or_(
                     ResearchPublication.title.ilike(p),
                     ResearchPublication.authors.ilike(p),
-                    ResearchPublication.doi.ilike(p),
+                    ResearchPublication.journal_name.ilike(p),
                 )
             )
         return await self.list(page=page, size=size, filters=filters)
@@ -367,7 +367,6 @@ class EnergyRepository(BaseRepository[EnergyConsumption]):
             if month_num is not None:
                 filters.append(EnergyConsumption.month == month_num)
             else:
-                # No text columns to search on Energy — a non-month term matches nothing.
                 filters.append(EnergyConsumption.id == None)  # noqa: E711
         return await self.list(page=page, size=size, filters=filters)
 
@@ -429,7 +428,7 @@ class WasteRepository(BaseRepository[WasteManagement]):
                 p = f"%{search}%"
                 filters.append(
                     or_(
-                        WasteManagement.waste_type.ilike(p),
+                        cast(WasteManagement.waste_type, String).ilike(p),
                         WasteManagement.disposal_method.ilike(p),
                         WasteManagement.vendor_name.ilike(p),
                     )
