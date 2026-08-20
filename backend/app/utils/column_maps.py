@@ -26,6 +26,8 @@ class ColumnSpec:
 # ── Faculty ───────────────────────────────────────────────────────────────────
 
 FACULTY_COLUMNS: list[ColumnSpec] = [
+    # Virtual import field: resolved to department_id by UploadService.
+    ColumnSpec("department",         "str",   False, ["department", "department name", "department code"]),
     ColumnSpec("employee_id",        "str",   True,  ["emp id", "employee id", "emp_id", "staff id", "faculty id"]),
     ColumnSpec("full_name",          "str",   True,  ["name", "faculty name", "teacher name"]),
     ColumnSpec("gender",             "str",   True,  ["sex", "gender"]),
@@ -48,6 +50,9 @@ FACULTY_COLUMNS: list[ColumnSpec] = [
 # ── Students ──────────────────────────────────────────────────────────────────
 
 STUDENT_COLUMNS: list[ColumnSpec] = [
+    # Virtual import fields: resolved to department_id/program_id by UploadService.
+    ColumnSpec("department",      "str",  False, ["department", "department name", "department code"]),
+    ColumnSpec("program",         "str",  False, ["program", "program name", "program code"]),
     ColumnSpec("enrollment_no",   "str",  True,  ["enrollment", "enroll no", "roll no", "student id", "gr no"]),
     ColumnSpec("full_name",       "str",  True,  ["name", "student name"]),
     ColumnSpec("gender",          "str",  True,  ["sex", "gender"]),
@@ -68,6 +73,7 @@ STUDENT_COLUMNS: list[ColumnSpec] = [
 # ── Research Publications ─────────────────────────────────────────────────────
 
 RESEARCH_COLUMNS: list[ColumnSpec] = [
+    ColumnSpec("department",     "str",   False, ["department", "department name", "department code"]),
     ColumnSpec("title",          "str",   True,  ["paper title", "title of paper", "publication title"]),
     ColumnSpec("authors",        "str",   True,  ["authors", "author names", "co-authors"]),
     ColumnSpec("category",       "str",   True,  ["type", "publication type", "paper type"]),
@@ -84,6 +90,7 @@ RESEARCH_COLUMNS: list[ColumnSpec] = [
 # ── Patents ───────────────────────────────────────────────────────────────────
 
 PATENT_COLUMNS: list[ColumnSpec] = [
+    ColumnSpec("department",          "str",  False, ["department", "department name", "department code"]),
     ColumnSpec("title",              "str",  True,  ["patent title", "title of invention"]),
     ColumnSpec("application_number", "str",  True,  ["application no", "app no", "patent no"]),
     ColumnSpec("inventors",          "str",  True,  ["inventors", "inventor names"]),
@@ -96,6 +103,7 @@ PATENT_COLUMNS: list[ColumnSpec] = [
 # ── Placements ────────────────────────────────────────────────────────────────
 
 PLACEMENT_COLUMNS: list[ColumnSpec] = [
+    ColumnSpec("department",     "str",   False, ["department", "department name", "department code"]),
     ColumnSpec("student_name",    "str",   True,  ["name", "student name"]),
     ColumnSpec("gender",          "str",   True,  ["sex", "gender"]),
     ColumnSpec("placement_type",  "str",   True,  ["type", "placement type"]),

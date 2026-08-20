@@ -104,7 +104,7 @@ export default function UploadsPage() {
     setResult(null);
     try {
       const res = await uploadService.uploadFile(
-        file, entityType, academicYear, undefined,
+        file, entityType, academicYear,
         (pct) => setProgress(pct),
       );
       setResult(res);
@@ -153,7 +153,9 @@ export default function UploadsPage() {
                 <label className="text-sm font-medium text-foreground">Data Type</label>
                 <select
                   value={entityType}
-                  onChange={(e) => setEntityType(e.target.value)}
+                  onChange={(e) => {
+                    setEntityType(e.target.value);
+                  }}
                   className="w-full rounded-lg border border-input bg-background text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003087]"
                   disabled={uploading}
                 >

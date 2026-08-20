@@ -11,6 +11,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from sqlalchemy import select
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +36,6 @@ async def upload_file(
     file: UploadFile = File(...),
     entity_type: str = Form(...),
     academic_year: str = Form(...),
-    department_id: Optional[uuid.UUID] = Form(None),
     mode: str = Form("insert"),
     current_user: User = Depends(require_permission("uploads:create")),
     service: UploadService = Depends(get_upload_service),
@@ -57,7 +57,6 @@ async def upload_file(
         file=file,
         entity_type=entity_type,
         academic_year=academic_year,
-        department_id=department_id,
         current_user=current_user,
         mode=mode,
     )
@@ -197,6 +196,8 @@ async def download_template(
 
     from app.utils.column_maps import get_column_specs
     from app.utils.db_inserter import _REPO_MAP
+    from app.models.user import Department
+    from app.models.student import Program
 
     specs = get_column_specs(entity_type)
     if not specs:
@@ -228,6 +229,22 @@ async def download_template(
                 page=1, size=100_000,
                 filters=[repo.model.academic_year == academic_year],
             )
+
+    department_labels: dict[uuid.UUID, str] = {}
+    program_labels: dict[uuid.UUID, str] = {}
+    if existing_rows:
+        department_ids = {item.department_id for item in existing_rows if getattr(item, "department_id", None)}
+        program_ids = {item.program_id for item in existing_rows if getattr(item, "program_id", None)}
+        if department_ids:
+            department_labels = {
+                department.id: department.code
+                for department in (await db.execute(select(Department).where(Department.id.in_(department_ids)))).scalars()
+            }
+        if program_ids:
+            program_labels = {
+                program.id: program.code
+                for program in (await db.execute(select(Program).where(Program.id.in_(program_ids)))).scalars()
+            }
 
     output = io.BytesIO()
     wb = xlsxwriter.Workbook(output, {"in_memory": True})
@@ -265,20 +282,38 @@ async def download_template(
         for r, item in enumerate(existing_rows, start=1):
             ws.write(r, 0, str(item.id), id_cell_fmt)
             for col_idx, spec in enumerate(specs, start=1):
-                ws.write(r, col_idx, to_cell_value(getattr(item, spec.db_field, None)), data_cell_fmt)
+                if spec.db_field == "department":
+                    value = department_labels.get(getattr(item, "department_id", None), "")
+                elif spec.db_field == "program":
+                    value = program_labels.get(getattr(item, "program_id", None), "")
+                else:
+                    value = getattr(item, spec.db_field, None)
+                ws.write(r, col_idx, to_cell_value(value), data_cell_fmt)
         note_row = len(existing_rows) + 2
+        relationship_note = ""
+        if entity_type in {"faculty", "students", "research", "patents", "placements"}:
+            relationship_note = " New rows must include a valid Department name or code."
+        if entity_type == "students":
+            relationship_note += " New student rows must also include a valid Program name or code."
         ws.write(note_row, 0,
                  f"↑ {len(existing_rows)} existing record(s) for {academic_year}. "
                  f"Edit any cell above to update that record. Add new rows below "
                  f"(leave Record ID blank) to insert new records. Don't edit "
-                 f"Record ID on existing rows.",
+                 f"Record ID on existing rows.{relationship_note}",
                  note_fmt)
     else:
         # No data yet (or blank-template request) — same friendly hints as before.
         ws.write(1, 0, "* Required fields (highlighted in yellow)", note_fmt)
         ws.write(2, 0, "Leave Record ID blank for new rows — it's filled in automatically "
                        "when you download this file again after uploading.", note_fmt)
+        if entity_type in {"faculty", "students", "research", "patents", "placements"}:
+            relation_note = "New rows require a valid Department name or code."
+            if entity_type == "students":
+                relation_note += " New student rows also require a valid Program name or code."
+            ws.write(3, 0, relation_note, note_fmt)
         hints = {
+            "department": "CSE / Computer Science and Engineering",
+            "program": "BTECH-CSE / B.Tech Computer Engineering",
             "employee_id": "EMP001", "full_name": "Dr. Rajesh Kumar",
             "gender": "male / female / other",
             "designation": "professor / assistant_professor",
@@ -294,7 +329,7 @@ async def download_template(
         for col_idx, spec in enumerate(specs, start=1):
             hint = hints.get(spec.db_field, "")
             if hint:
-                ws.write(3, col_idx, f"e.g. {hint}", sample_fmt)
+                ws.write(4, col_idx, f"e.g. {hint}", sample_fmt)
 
     wb.close()
 

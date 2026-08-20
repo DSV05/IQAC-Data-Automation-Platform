@@ -61,7 +61,6 @@ async def insert_rows(
     db: AsyncSession,
     entity_type: str,
     valid_rows: list[dict],
-    department_id: uuid.UUID | None = None,
     mode: str = "insert",  # kept for API compatibility; matching is always by Record ID now
     actor: object | None = None,  # the uploading User, for audit logging
 ) -> tuple[int, int, int]:
@@ -78,13 +77,12 @@ async def insert_rows(
     repo = repo_cls(db, actor=actor, source="upload")
     required_for_insert = _INSERT_REQUIRES.get(entity_type, [])
 
-    # Inject department_id if provided and not already set on a row
-    if department_id:
-        for row in valid_rows:
-            if not row.get("department_id"):
-                row["department_id"] = department_id
-
     for row in valid_rows:
+        # Relationship display values and validator metadata must never reach
+        # SQLAlchemy's model constructor/update calls.
+        row.pop("_row_number", None)
+        row.pop("department", None)
+        row.pop("program", None)
         record_id_raw = row.pop("_record_id", None)
         record_id: uuid.UUID | None = None
         if record_id_raw:

@@ -11,7 +11,7 @@
  * (see backend/app/api/v1/endpoints/uploads.py::download_template).
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, GraduationCap, BookOpen, Lightbulb, Briefcase,
@@ -59,6 +59,13 @@ const SEARCH_HINTS: Record<string, string> = {
   sdg:        "Search by activity, SDG goal…",
 };
 
+// These datasets are institution-wide. Department is intentionally not part
+// of their UI, editing, or display flow even though legacy database rows may
+// still contain an optional department_id.
+const DEPARTMENT_MANAGED_ENTITIES = new Set([
+  "faculty", "students", "research", "patents", "placements",
+]);
+
 // ── localStorage helpers for custom template labels ────────────────────────────
 const LABEL_STORAGE_KEY = "iqac_template_labels";
 
@@ -80,6 +87,7 @@ const COLUMNS: Record<string, { key: string; label: string; required?: boolean; 
   faculty: [
     { key: "employee_id",          label: "Employee ID",       required: true  },
     { key: "full_name",            label: "Full Name",         required: true  },
+    { key: "department_name",      label: "Department",        templated: false },
     { key: "gender",               label: "Gender",            required: true,  render: (v) => <span className="capitalize">{v}</span> },
     { key: "designation",          label: "Designation",       required: true,  render: (v) => <Badge value={v} /> },
     { key: "qualification",        label: "Qualification",     required: true,  render: (v) => <span className="uppercase text-xs font-medium">{v}</span> },
@@ -100,6 +108,7 @@ const COLUMNS: Record<string, { key: string; label: string; required?: boolean; 
   students: [
     { key: "enrollment_no",        label: "Enrollment No",     required: true },
     { key: "full_name",            label: "Full Name",         required: true },
+    { key: "department_name",      label: "Department",        templated: false },
     { key: "gender",               label: "Gender",            required: true, render: (v) => <span className="capitalize">{v}</span> },
     { key: "year_of_admission",    label: "Admission Year",    required: true },
     { key: "current_year",         label: "Current Year",      required: true },
@@ -117,6 +126,7 @@ const COLUMNS: Record<string, { key: string; label: string; required?: boolean; 
   ],
   research: [
     { key: "title",                    label: "Title",              required: true, render: (v) => <span className="max-w-xs truncate block" title={v}>{v}</span> },
+    { key: "department_name",          label: "Department",         templated: false },
     { key: "authors",                  label: "Authors",            required: true, render: (v) => <span className="max-w-[120px] truncate block" title={v}>{v}</span> },
     { key: "category",                 label: "Category",           required: true, render: (v) => <Badge value={v} /> },
     { key: "publication_year",         label: "Year",               required: true },
@@ -131,6 +141,7 @@ const COLUMNS: Record<string, { key: string; label: string; required?: boolean; 
   ],
   patents: [
     { key: "title",              label: "Title",              required: true, render: (v) => <span className="max-w-xs truncate block" title={v}>{v}</span> },
+    { key: "department_name",    label: "Department",         templated: false },
     { key: "application_number", label: "Application No",    required: true },
     { key: "inventors",          label: "Inventors",         required: true, render: (v) => <span className="max-w-[120px] truncate block" title={v}>{v}</span> },
     { key: "status",             label: "Status",            required: true, render: (v) => <Badge value={v} /> },
@@ -140,6 +151,7 @@ const COLUMNS: Record<string, { key: string; label: string; required?: boolean; 
   ],
   placements: [
     { key: "student_name",    label: "Student Name",    required: true },
+    { key: "department_name", label: "Department",      templated: false },
     { key: "gender",          label: "Gender",          required: true, render: (v) => <span className="capitalize">{v}</span> },
     { key: "placement_type",  label: "Placement Type",  required: true, render: (v) => <Badge value={v} /> },
     { key: "company_name",    label: "Company",                         render: (v) => v ?? "—" },
@@ -223,12 +235,13 @@ const COLUMNS: Record<string, { key: string; label: string; required?: boolean; 
 };
 
 // ── Editable fields per entity ─────────────────────────────────────────────────
-type EditFieldType = "number" | "text" | "textarea" | "checkbox" | "date" | "select";
+type EditFieldType = "number" | "text" | "textarea" | "checkbox" | "date" | "select" | "department";
 interface EditFieldDef { key: string; label: string; type: EditFieldType; step?: string; options?: string[] }
 
 const EDITABLE_ENTITY_FIELDS: Record<string, EditFieldDef[]> = {
   faculty: [
     { key: "full_name",           label: "Full Name",             type: "text" },
+    { key: "department_id",       label: "Department",            type: "department" },
     { key: "gender",               label: "Gender",                type: "select", options: ["male","female","other"] },
     { key: "date_of_birth",        label: "Date of Birth",         type: "date" },
     { key: "email",                label: "Email",                 type: "text" },
@@ -251,6 +264,7 @@ const EDITABLE_ENTITY_FIELDS: Record<string, EditFieldDef[]> = {
   ],
   students: [
     { key: "full_name",     label: "Full Name",         type: "text" },
+    { key: "department_id", label: "Department",        type: "department" },
     { key: "gender",         label: "Gender",            type: "select", options: ["male","female","other"] },
     { key: "date_of_birth",  label: "Date of Birth",     type: "date" },
     { key: "category",       label: "Category",          type: "select", options: ["general","obc","sc","st","ews","pwd"] },
@@ -269,6 +283,7 @@ const EDITABLE_ENTITY_FIELDS: Record<string, EditFieldDef[]> = {
   ],
   research: [
     { key: "title",          label: "Title",              type: "text" },
+    { key: "department_id",  label: "Department",         type: "department" },
     { key: "category",       label: "Category",           type: "select", options: ["journal","conference","book","book_chapter","patent"] },
     { key: "journal_conference_name", label: "Journal / Conference", type: "text" },
     { key: "publisher",      label: "Publisher",          type: "text" },
@@ -286,6 +301,7 @@ const EDITABLE_ENTITY_FIELDS: Record<string, EditFieldDef[]> = {
   ],
   patents: [
     { key: "title",         label: "Title",              type: "text" },
+    { key: "department_id", label: "Department",         type: "department" },
     { key: "inventors",     label: "Inventors",          type: "text" },
     { key: "status",        label: "Status",            type: "select", options: ["filed","published","granted","abandoned"] },
     { key: "filing_date",   label: "Filing Date",        type: "date" },
@@ -296,6 +312,7 @@ const EDITABLE_ENTITY_FIELDS: Record<string, EditFieldDef[]> = {
   ],
   placements: [
     { key: "student_name",   label: "Student Name",      type: "text" },
+    { key: "department_id",  label: "Department",        type: "department" },
     { key: "gender",          label: "Gender",             type: "select", options: ["male","female","other"] },
     { key: "category",       label: "Category",           type: "select", options: ["general","obc","sc","st","ews","pwd"] },
     { key: "placement_type", label: "Placement Type",    type: "select", options: ["campus","off_campus","higher_studies","entrepreneurship"] },
@@ -634,6 +651,19 @@ function EntityTable({ entity, year, search, canEdit }: {
     },
   });
 
+  // Master-data responses carry department_id. Resolve it once to a readable
+  // name/code for every table instead of exposing internal UUIDs in the UI.
+  const { data: departments = [] } = useQuery<{ id: string; name: string; code: string }[]>({
+    queryKey: ["departments"],
+    queryFn: async () => (await apiClient.get("/auth/departments")).data,
+    staleTime: 1000 * 60 * 10,
+    enabled: DEPARTMENT_MANAGED_ENTITIES.has(entity),
+  });
+  const departmentNames = useMemo(
+    () => new Map(departments.map((department) => [department.id, `${department.name} (${department.code})`])),
+    [departments],
+  );
+
   // Apply any custom labels saved by admin
   const allCustomLabels = loadCustomLabels();
   const customLabels = allCustomLabels[entity] ?? {};
@@ -653,7 +683,12 @@ function EntityTable({ entity, year, search, canEdit }: {
     </div>
   );
 
-  const items  = data?.items ?? [];
+  const items = (data?.items ?? []).map((item: any) => ({
+    ...item,
+    ...(DEPARTMENT_MANAGED_ENTITIES.has(entity) ? {
+      department_name: item.department_id ? departmentNames.get(item.department_id) ?? "Unknown department" : "—",
+    } : {}),
+  }));
   const total  = data?.total ?? 0;
   const pages  = data?.pages ?? 1;
 
@@ -898,6 +933,13 @@ function RecordEditModal({ entity, row, fields, onClose, onSaved }: {
     return init;
   });
   const [error, setError] = useState<string | null>(null);
+  const needsDepartment = fields.some((field) => field.type === "department");
+  const { data: departments = [] } = useQuery<{ id: string; name: string; code: string }[]>({
+    queryKey: ["departments"],
+    queryFn: async () => (await apiClient.get("/auth/departments")).data,
+    staleTime: 1000 * 60 * 10,
+    enabled: needsDepartment,
+  });
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -911,7 +953,7 @@ function RecordEditModal({ entity, row, fields, onClose, onSaved }: {
           // fails backend date validation and previously crashed the page
           // (see error-rendering fix below for why that happened).
           payload[f.key] = v === "" || v === null || v === undefined ? null : v;
-        } else if (f.type === "select") {
+        } else if (f.type === "select" || f.type === "department") {
           payload[f.key] = v === "" ? null : v;
         } else {
           payload[f.key] = v;
@@ -947,14 +989,16 @@ function RecordEditModal({ entity, row, fields, onClose, onSaved }: {
                     className="rounded border-input" />
                   {f.label}
                 </label>
-              ) : f.type === "select" ? (
+              ) : f.type === "select" || f.type === "department" ? (
                 <>
                   <label className="text-xs font-medium text-muted-foreground">{f.label}</label>
                   <select value={values[f.key] ?? ""}
                     onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
                     className="w-full rounded-lg border border-input bg-background text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003087]">
                     <option value="">— Select —</option>
-                    {f.options?.map((o) => <option key={o} value={o}>{o.replace(/_/g, " ")}</option>)}
+                    {f.type === "department"
+                      ? departments.map((department) => <option key={department.id} value={department.id}>{department.name} ({department.code})</option>)
+                      : f.options?.map((o) => <option key={o} value={o}>{o.replace(/_/g, " ")}</option>)}
                   </select>
                 </>
               ) : (

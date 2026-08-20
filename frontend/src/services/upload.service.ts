@@ -5,14 +5,12 @@ export const uploadService = {
     file: File,
     entityType: string,
     academicYear: string,
-    departmentId?: string,
     onProgress?: (pct: number) => void,
   ) => {
     const form = new FormData();
     form.append("file", file);
     form.append("entity_type", entityType);
     form.append("academic_year", academicYear);
-    if (departmentId) form.append("department_id", departmentId);
 
     const res = await apiClient.post("/uploads", form, {
       headers: { "Content-Type": "multipart/form-data" },

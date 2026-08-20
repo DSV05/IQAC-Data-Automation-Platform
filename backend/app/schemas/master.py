@@ -58,6 +58,7 @@ class FacultyCreate(FacultyBase):
 
 
 class FacultyUpdate(BaseModel):
+    department_id: Optional[uuid.UUID] = None
     full_name: Optional[str] = None
     gender: Optional[Gender] = None
     date_of_birth: Optional[date] = None
@@ -156,6 +157,7 @@ class StudentCreate(StudentBase):
 
 
 class StudentUpdate(BaseModel):
+    department_id: Optional[uuid.UUID] = None
     full_name: Optional[str] = None
     gender: Optional[Gender] = None
     date_of_birth: Optional[date] = None
@@ -213,6 +215,7 @@ class ResearchPublicationCreate(ResearchPublicationBase):
 
 
 class ResearchPublicationUpdate(BaseModel):
+    department_id: Optional[uuid.UUID] = None
     title: Optional[str] = None
     category: Optional[PublicationCategory] = None
     journal_conference_name: Optional[str] = None
@@ -262,6 +265,7 @@ class PatentCreate(PatentBase):
 
 
 class PatentUpdate(BaseModel):
+    department_id: Optional[uuid.UUID] = None
     title: Optional[str] = None
     filing_date: Optional[date] = None
     grant_date: Optional[date] = None
@@ -352,6 +356,7 @@ class PlacementCreate(PlacementBase):
 
 
 class PlacementUpdate(BaseModel):
+    department_id: Optional[uuid.UUID] = None
     student_name: Optional[str] = None
     gender: Optional[Gender] = None
     category: Optional[StudentCategory] = None

@@ -9,11 +9,13 @@ from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.upload import UploadEntityType, UploadJob, UploadStatus
-from app.models.user import User
+from app.models.user import Department, User
+from app.models.student import Program
 from app.repositories.upload import UploadRepository
 from app.utils.db_inserter import insert_rows
 from app.utils.excel_validator import ExcelValidator, RowError
@@ -35,7 +37,6 @@ class UploadService:
         file: UploadFile,
         entity_type: str,
         academic_year: str,
-        department_id: uuid.UUID | None,
         current_user: User,
         mode: str = "insert",
     ) -> dict:
@@ -98,6 +99,7 @@ class UploadService:
         try:
             validator = ExcelValidator(entity_type, academic_year, mode=mode)
             result = validator.validate(str(file_path))
+            await self._resolve_relationships(result, entity_type, academic_year)
         except ValueError as e:
             logger.error("Validation failed", error=str(e))
             await self.repo.update_status(
@@ -122,7 +124,7 @@ class UploadService:
         if result.valid_rows:
             try:
                 inserted, updated, skipped_existing = await insert_rows(
-                    self.db, entity_type, result.valid_rows, department_id, mode=mode, actor=current_user
+                    self.db, entity_type, result.valid_rows, mode=mode, actor=current_user
                 )
             except Exception as e:
                 logger.error("DB insertion error", error=str(e))
@@ -189,6 +191,69 @@ class UploadService:
             "errors": error_dicts[:50],
             "has_more_errors": len(result.errors) > 50,
         }
+
+    async def _resolve_relationships(self, result, entity_type: str, academic_year: str) -> None:
+        """Resolve spreadsheet department/program names or codes to database IDs.
+
+        These fields are deliberately per-row. This lets a single workbook
+        contain multiple departments and gives the operator actionable errors
+        instead of silently skipping rows that would violate a foreign key.
+        """
+        department_entities = {"faculty", "students", "research", "patents", "placements"}
+        if entity_type not in department_entities:
+            return
+
+        departments = (await self.db.execute(select(Department))).scalars().all()
+        departments_by_key = {
+            key: department
+            for department in departments
+            for key in (department.name.strip().casefold(), department.code.strip().casefold())
+        }
+        programs_by_key: dict[tuple[str, str], Program] = {}
+        if entity_type == "students":
+            programs = (await self.db.execute(
+                select(Program).where(Program.academic_year == academic_year)
+            )).scalars().all()
+            programs_by_key = {
+                (str(program.department_id), key): program
+                for program in programs
+                for key in (program.name.strip().casefold(), program.code.strip().casefold())
+            }
+
+        valid_rows: list[dict] = []
+        for row in result.valid_rows:
+            row_number = row.get("_row_number", 0)
+            row_errors: list[RowError] = []
+            is_new = not row.get("_record_id")
+            department_value = row.get("department")
+            department = departments_by_key.get(str(department_value).strip().casefold()) if department_value else None
+
+            if department_value and not department:
+                row_errors.append(RowError(row_number, "department", department_value, "Department name or code was not found"))
+            elif is_new and not department:
+                row_errors.append(RowError(row_number, "department", department_value or "", "Department is required for a new record"))
+            elif department:
+                row["department_id"] = department.id
+
+            if entity_type == "students":
+                program_value = row.get("program")
+                program = (
+                    programs_by_key.get((str(department.id), str(program_value).strip().casefold()))
+                    if department and program_value else None
+                )
+                if program_value and department and not program:
+                    row_errors.append(RowError(row_number, "program", program_value, "Program name or code was not found for the selected department and academic year"))
+                elif is_new and not program:
+                    row_errors.append(RowError(row_number, "program", program_value or "", "Program is required for a new student record"))
+                elif program:
+                    row["program_id"] = program.id
+
+            if row_errors:
+                result.errors.extend(row_errors)
+                result.skipped_rows += 1
+            else:
+                valid_rows.append(row)
+        result.valid_rows = valid_rows
 
     async def get_error_report(self, job_id: uuid.UUID) -> tuple[bytes, str]:
         job = await self.repo.get_with_uploader(job_id)

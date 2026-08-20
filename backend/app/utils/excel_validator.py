@@ -179,13 +179,30 @@ class ExcelValidator:
                 f"Found columns: {', '.join(df.columns.tolist())}"
             )
 
-        df = df.dropna(how="all")
+        # Templates contain instructional text in the Record ID column. A row
+        # with no actual entity field populated is not data and must not turn
+        # into a spurious validation error on re-upload.
+        data_fields = [spec.db_field for spec in self.specs if spec.db_field in df.columns]
+        if data_fields:
+            def has_data(row: pd.Series) -> bool:
+                return any(
+                    value is not None
+                    and not (isinstance(value, float) and pd.isna(value))
+                    and str(value).strip() not in ("", "nan", "NaN", "None")
+                    for value in row
+                )
+            df = df[df[data_fields].apply(has_data, axis=1)]
+        else:
+            df = df.iloc[0:0]
         result.total_rows = len(df)
 
         for idx, row in df.iterrows():
             row_num = int(idx) + 2
             row_errors: list[RowError] = []
             clean: dict[str, Any] = {"academic_year": self.academic_year}
+            # Kept internally until relationship names/codes are resolved by
+            # UploadService. It is never inserted into a database model.
+            clean["_row_number"] = row_num
 
             # Carry the Record ID straight through, no validation — it's an
             # internal identity marker, not user-entered data. A malformed
