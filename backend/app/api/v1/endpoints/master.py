@@ -367,6 +367,22 @@ async def placement_stats(
     return await PlacementRepository(db).stats_by_year(academic_year)
 
 
+@router.put("/placements/{record_id}", response_model=s.PlacementRead)
+async def update_placement(
+    record_id: uuid.UUID,
+    data: s.PlacementUpdate,
+    current_user: User = Depends(require_permission("placements:update")),
+    db: AsyncSession = Depends(get_db),
+):
+    from fastapi import HTTPException
+    repo = PlacementRepository(db)
+    item = await repo.get_by_id(record_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Not found")
+    item = await repo.update(item, **data.model_dump(exclude_unset=True))
+    return s.PlacementRead.model_validate(item)
+
+
 # ── Energy ────────────────────────────────────────────────────────────────────
 
 @router.get("/energy", response_model=s.PaginatedEnergy)
@@ -405,6 +421,22 @@ async def energy_totals(
     return await EnergyRepository(db).totals_by_year(academic_year)
 
 
+@router.put("/energy/{record_id}", response_model=s.EnergyRead)
+async def update_energy(
+    record_id: uuid.UUID,
+    data: s.EnergyUpdate,
+    current_user: User = Depends(require_permission("faculty:update")),
+    db: AsyncSession = Depends(get_db),
+):
+    from fastapi import HTTPException
+    repo = EnergyRepository(db)
+    item = await repo.get_by_id(record_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Not found")
+    item = await repo.update(item, **data.model_dump(exclude_unset=True))
+    return s.EnergyRead.model_validate(item)
+
+
 # ── MoUs ──────────────────────────────────────────────────────────────────────
 
 @router.get("/mous", response_model=s.PaginatedMoUs)
@@ -435,6 +467,22 @@ async def create_mou(
     return s.MoURead.model_validate(item)
 
 
+@router.put("/mous/{record_id}", response_model=s.MoURead)
+async def update_mou(
+    record_id: uuid.UUID,
+    data: s.MoUUpdate,
+    current_user: User = Depends(require_permission("faculty:update")),
+    db: AsyncSession = Depends(get_db),
+):
+    from fastapi import HTTPException
+    repo = MoURepository(db)
+    item = await repo.get_by_id(record_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Not found")
+    item = await repo.update(item, **data.model_dump(exclude_unset=True))
+    return s.MoURead.model_validate(item)
+
+
 # ── Events ────────────────────────────────────────────────────────────────────
 
 @router.get("/events", response_model=s.PaginatedEvents)
@@ -462,6 +510,22 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
 ):
     item = await EventRepository(db).create(**data.model_dump())
+    return s.EventRead.model_validate(item)
+
+
+@router.put("/events/{record_id}", response_model=s.EventRead)
+async def update_event(
+    record_id: uuid.UUID,
+    data: s.EventUpdate,
+    current_user: User = Depends(require_permission("faculty:update")),
+    db: AsyncSession = Depends(get_db),
+):
+    from fastapi import HTTPException
+    repo = EventRepository(db)
+    item = await repo.get_by_id(record_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Not found")
+    item = await repo.update(item, **data.model_dump(exclude_unset=True))
     return s.EventRead.model_validate(item)
 
 
@@ -513,6 +577,22 @@ async def create_sdg_activity(
     db: AsyncSession = Depends(get_db),
 ):
     item = await SDGRepository(db).create(**data.model_dump())
+    return s.SDGActivityRead.model_validate(item)
+
+
+@router.put("/sdg/{record_id}", response_model=s.SDGActivityRead)
+async def update_sdg_activity(
+    record_id: uuid.UUID,
+    data: s.SDGActivityUpdate,
+    current_user: User = Depends(require_permission("faculty:update")),
+    db: AsyncSession = Depends(get_db),
+):
+    from fastapi import HTTPException
+    repo = SDGRepository(db)
+    item = await repo.get_by_id(record_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Not found")
+    item = await repo.update(item, **data.model_dump(exclude_unset=True))
     return s.SDGActivityRead.model_validate(item)
 
 

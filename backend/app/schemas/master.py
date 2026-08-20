@@ -49,6 +49,7 @@ class FacultyBase(BaseModel):
     experience_research: float = 0.0
     is_sanctioned_post: bool = True
     is_active: bool = True
+    pan_number: Optional[str] = None
     remarks: Optional[str] = None
 
 
@@ -58,14 +59,24 @@ class FacultyCreate(FacultyBase):
 
 class FacultyUpdate(BaseModel):
     full_name: Optional[str] = None
+    gender: Optional[Gender] = None
+    date_of_birth: Optional[date] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
     designation: Optional[Designation] = None
     qualification: Optional[Qualification] = None
+    specialization: Optional[str] = None
+    phd_awarded: Optional[bool] = None
+    phd_year: Optional[int] = None
+    phd_university: Optional[str] = None
     employment_type: Optional[EmploymentType] = None
+    date_of_joining: Optional[date] = None
     experience_teaching: Optional[float] = None
     experience_industry: Optional[float] = None
     experience_research: Optional[float] = None
-    phd_awarded: Optional[bool] = None
+    is_sanctioned_post: Optional[bool] = None
     is_active: Optional[bool] = None
+    pan_number: Optional[str] = None
     remarks: Optional[str] = None
 
 
@@ -145,10 +156,20 @@ class StudentCreate(StudentBase):
 
 
 class StudentUpdate(BaseModel):
+    full_name: Optional[str] = None
+    gender: Optional[Gender] = None
+    date_of_birth: Optional[date] = None
+    category: Optional[StudentCategory] = None
+    is_pwd: Optional[bool] = None
+    state_of_domicile: Optional[str] = None
+    admission_type: Optional[AdmissionType] = None
     current_year: Optional[int] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
     sgpa_last: Optional[float] = None
     cgpa: Optional[float] = None
     backlogs: Optional[int] = None
+    is_lateral: Optional[bool] = None
     is_active: Optional[bool] = None
     remarks: Optional[str] = None
 
@@ -192,9 +213,19 @@ class ResearchPublicationCreate(ResearchPublicationBase):
 
 
 class ResearchPublicationUpdate(BaseModel):
-    citations: Optional[int] = None
-    impact_factor: Optional[float] = None
+    title: Optional[str] = None
+    category: Optional[PublicationCategory] = None
+    journal_conference_name: Optional[str] = None
+    publisher: Optional[str] = None
+    publication_year: Optional[int] = None
+    publication_month: Optional[int] = Field(None, ge=1, le=12)
+    doi: Optional[str] = None
+    isbn_issn: Optional[str] = None
+    scopus_id: Optional[str] = None
     indexing: Optional[IndexingType] = None
+    impact_factor: Optional[float] = None
+    citations: Optional[int] = None
+    authors: Optional[str] = None
     is_verified: Optional[bool] = None
     remarks: Optional[str] = None
 
@@ -231,8 +262,13 @@ class PatentCreate(PatentBase):
 
 
 class PatentUpdate(BaseModel):
-    status: Optional[PatentStatus] = None
+    title: Optional[str] = None
+    filing_date: Optional[date] = None
     grant_date: Optional[date] = None
+    status: Optional[PatentStatus] = None
+    inventors: Optional[str] = None
+    country: Optional[str] = None
+    patent_office: Optional[str] = None
     remarks: Optional[str] = None
 
 
@@ -316,9 +352,17 @@ class PlacementCreate(PlacementBase):
 
 
 class PlacementUpdate(BaseModel):
-    package_lpa: Optional[float] = None
+    student_name: Optional[str] = None
+    gender: Optional[Gender] = None
+    category: Optional[StudentCategory] = None
+    placement_type: Optional[PlacementType] = None
     company_name: Optional[str] = None
     designation: Optional[str] = None
+    package_lpa: Optional[float] = None
+    placement_date: Optional[date] = None
+    company_city: Optional[str] = None
+    company_state: Optional[str] = None
+    is_international: Optional[bool] = None
     is_verified: Optional[bool] = None
     remarks: Optional[str] = None
 
@@ -397,9 +441,15 @@ class MoUCreate(MoUBase):
 
 
 class MoUUpdate(BaseModel):
+    partner_name: Optional[str] = None
+    partner_country: Optional[str] = None
+    partner_type: Optional[MoUType] = None
+    mou_type: Optional[str] = None
+    signed_date: Optional[date] = None
+    valid_until: Optional[date] = None
+    purpose: Optional[str] = None
     activities_conducted: Optional[int] = None
     is_active: Optional[bool] = None
-    valid_until: Optional[date] = None
     remarks: Optional[str] = None
 
 
@@ -440,9 +490,19 @@ class EventCreate(EventBase):
 
 
 class EventUpdate(BaseModel):
+    title: Optional[str] = None
+    event_type: Optional[EventType] = None
+    is_organized: Optional[bool] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    duration_days: Optional[int] = None
+    venue: Optional[str] = None
     participants_count: Optional[int] = None
     faculty_participants: Optional[int] = None
     student_participants: Optional[int] = None
+    external_participants: Optional[int] = None
+    is_international: Optional[bool] = None
+    funding_amount: Optional[float] = None
     remarks: Optional[str] = None
 
 
@@ -480,9 +540,15 @@ class EnergyCreate(EnergyBase):
 
 
 class EnergyUpdate(BaseModel):
+    month: Optional[int] = Field(None, ge=1, le=12)
     electricity_kwh: Optional[float] = None
+    electricity_cost_inr: Optional[float] = None
     solar_kwh: Optional[float] = None
+    wind_kwh: Optional[float] = None
+    other_renewable_kwh: Optional[float] = None
     diesel_liters: Optional[float] = None
+    lpg_kg: Optional[float] = None
+    cng_kg: Optional[float] = None
     ghg_scope1_tco2e: Optional[float] = None
     ghg_scope2_tco2e: Optional[float] = None
     remarks: Optional[str] = None
@@ -517,10 +583,12 @@ class WaterCreate(WaterBase):
 
 
 class WaterUpdate(BaseModel):
+    month: Optional[int] = Field(None, ge=1, le=12)
     municipal_kl: Optional[float] = None
     borewell_kl: Optional[float] = None
     rainwater_harvested_kl: Optional[float] = None
     recycled_treated_kl: Optional[float] = None
+    cost_inr: Optional[float] = None
     remarks: Optional[str] = None
 
 
@@ -554,9 +622,14 @@ class WasteCreate(WasteBase):
 
 
 class WasteUpdate(BaseModel):
+    month: Optional[int] = Field(None, ge=1, le=12)
+    waste_type: Optional[WasteType] = None
     generated_kg: Optional[float] = None
     recycled_kg: Optional[float] = None
     disposed_kg: Optional[float] = None
+    disposal_method: Optional[str] = None
+    vendor_name: Optional[str] = None
+    cost_inr: Optional[float] = None
     remarks: Optional[str] = None
 
 
@@ -592,6 +665,14 @@ class AwardCreate(AwardBase):
 
 
 class AwardUpdate(BaseModel):
+    title: Optional[str] = None
+    awarding_body: Optional[str] = None
+    recipient_name: Optional[str] = None
+    recipient_type: Optional[str] = None
+    award_date: Optional[date] = None
+    category: Optional[str] = None
+    is_national: Optional[bool] = None
+    is_international: Optional[bool] = None
     prize_amount: Optional[float] = None
     remarks: Optional[str] = None
 
@@ -695,7 +776,13 @@ class SDGActivityCreate(SDGActivityBase):
 
 
 class SDGActivityUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    activity_type: Optional[str] = None
+    sdg_primary: Optional[int] = Field(None, ge=1, le=17)
+    sdg_secondary: Optional[str] = None
     beneficiaries_count: Optional[int] = None
+    investment_inr: Optional[float] = None
     outcome: Optional[str] = None
     remarks: Optional[str] = None
 

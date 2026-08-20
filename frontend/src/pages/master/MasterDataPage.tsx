@@ -11,7 +11,7 @@
  * (see backend/app/api/v1/endpoints/uploads.py::download_template).
  */
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, GraduationCap, BookOpen, Lightbulb, Briefcase,
@@ -229,89 +229,232 @@ interface EditFieldDef { key: string; label: string; type: EditFieldType; step?:
 const EDITABLE_ENTITY_FIELDS: Record<string, EditFieldDef[]> = {
   faculty: [
     { key: "full_name",           label: "Full Name",             type: "text" },
-    { key: "designation",         label: "Designation",           type: "select", options: ["assistant_professor","associate_professor","professor","hod","principal","director","lecturer","other"] },
-    { key: "employment_type",     label: "Employment Type",       type: "select", options: ["regular","contract","visiting","adjunct"] },
+    { key: "gender",               label: "Gender",                type: "select", options: ["male","female","other"] },
+    { key: "date_of_birth",        label: "Date of Birth",         type: "date" },
+    { key: "email",                label: "Email",                 type: "text" },
+    { key: "phone",                label: "Phone",                 type: "text" },
+    { key: "designation",         label: "Designation",           type: "select", options: ["professor","associate_professor","assistant_professor","lecturer","hod","dean","director","other"] },
+    { key: "qualification",        label: "Qualification",         type: "select", options: ["phd","mtech","me","mba","mphil","mpharm","btech","be","other"] },
+    { key: "specialization",       label: "Specialization",        type: "text" },
+    { key: "phd_awarded",          label: "PhD Awarded",           type: "checkbox" },
+    { key: "phd_year",             label: "PhD Year",              type: "number" },
+    { key: "phd_university",       label: "PhD University",        type: "text" },
+    { key: "employment_type",     label: "Employment Type",       type: "select", options: ["permanent","contract","visiting","adjunct"] },
+    { key: "date_of_joining",      label: "Date of Joining",       type: "date" },
     { key: "experience_teaching", label: "Teaching Exp (Yrs)",    type: "number", step: "0.1" },
     { key: "experience_industry", label: "Industry Exp (Yrs)",    type: "number", step: "0.1" },
-    { key: "phd_awarded",         label: "PhD Awarded",           type: "checkbox" },
+    { key: "experience_research", label: "Research Exp (Yrs)",    type: "number", step: "0.1" },
+    { key: "pan_number",           label: "PAN Number",            type: "text" },
+    { key: "is_sanctioned_post",   label: "Sanctioned Post",       type: "checkbox" },
     { key: "is_active",           label: "Active",                type: "checkbox" },
     { key: "remarks",             label: "Remarks",               type: "textarea" },
   ],
   students: [
+    { key: "full_name",     label: "Full Name",         type: "text" },
+    { key: "gender",         label: "Gender",            type: "select", options: ["male","female","other"] },
+    { key: "date_of_birth",  label: "Date of Birth",     type: "date" },
+    { key: "category",       label: "Category",          type: "select", options: ["general","obc","sc","st","ews","pwd"] },
+    { key: "is_pwd",         label: "PWD",                type: "checkbox" },
+    { key: "state_of_domicile", label: "State of Domicile", type: "text" },
+    { key: "admission_type", label: "Admission Type",    type: "select", options: ["regular","lateral","nri","management"] },
     { key: "current_year",  label: "Current Year",      type: "number" },
+    { key: "email",          label: "Email",              type: "text" },
+    { key: "phone",          label: "Phone",              type: "text" },
     { key: "cgpa",          label: "CGPA",              type: "number", step: "0.01" },
     { key: "sgpa_last",     label: "Last SGPA",         type: "number", step: "0.01" },
     { key: "backlogs",      label: "Backlogs",          type: "number" },
+    { key: "is_lateral",    label: "Lateral Entry",     type: "checkbox" },
     { key: "is_active",     label: "Active",            type: "checkbox" },
     { key: "remarks",       label: "Remarks",           type: "textarea" },
   ],
   research: [
+    { key: "title",          label: "Title",              type: "text" },
+    { key: "category",       label: "Category",           type: "select", options: ["journal","conference","book","book_chapter","patent"] },
+    { key: "journal_conference_name", label: "Journal / Conference", type: "text" },
+    { key: "publisher",      label: "Publisher",          type: "text" },
+    { key: "publication_year", label: "Year",              type: "number" },
+    { key: "publication_month", label: "Month",             type: "number" },
+    { key: "doi",             label: "DOI",                type: "text" },
+    { key: "isbn_issn",      label: "ISBN / ISSN",        type: "text" },
+    { key: "scopus_id",      label: "Scopus ID",          type: "text" },
+    { key: "indexing",       label: "Indexing",           type: "select", options: ["scopus","wos","sci","esci","ugc_care","other"] },
     { key: "impact_factor", label: "Impact Factor",     type: "number", step: "0.001" },
     { key: "citations",     label: "Citations",         type: "number" },
-    { key: "doi",           label: "DOI",               type: "text" },
+    { key: "authors",        label: "Authors",            type: "text" },
     { key: "is_verified",   label: "Verified",          type: "checkbox" },
     { key: "remarks",       label: "Remarks",           type: "textarea" },
   ],
   patents: [
+    { key: "title",         label: "Title",              type: "text" },
+    { key: "inventors",     label: "Inventors",          type: "text" },
     { key: "status",        label: "Status",            type: "select", options: ["filed","published","granted","abandoned"] },
+    { key: "filing_date",   label: "Filing Date",        type: "date" },
     { key: "grant_date",    label: "Grant Date",        type: "date" },
     { key: "country",       label: "Country",           type: "text" },
+    { key: "patent_office", label: "Patent Office",      type: "text" },
     { key: "remarks",       label: "Remarks",           type: "textarea" },
   ],
   placements: [
+    { key: "student_name",   label: "Student Name",      type: "text" },
+    { key: "gender",          label: "Gender",             type: "select", options: ["male","female","other"] },
+    { key: "category",       label: "Category",           type: "select", options: ["general","obc","sc","st","ews","pwd"] },
+    { key: "placement_type", label: "Placement Type",    type: "select", options: ["campus","off_campus","higher_studies","entrepreneurship"] },
     { key: "package_lpa",    label: "Package (LPA)",    type: "number", step: "0.01" },
     { key: "designation",    label: "Role",             type: "text" },
+    { key: "company_name",   label: "Company",            type: "text" },
+    { key: "placement_date", label: "Placement Date",     type: "date" },
     { key: "company_city",   label: "Company City",     type: "text" },
+    { key: "company_state",  label: "Company State",      type: "text" },
     { key: "is_international",label: "International",   type: "checkbox" },
     { key: "is_verified",    label: "Verified",         type: "checkbox" },
+    { key: "remarks",        label: "Remarks",            type: "textarea" },
   ],
   mous: [
-    { key: "purpose",        label: "Purpose",          type: "textarea" },
-    { key: "valid_until",    label: "Valid Until",      type: "date" },
-    { key: "is_active",      label: "Active",           type: "checkbox" },
+    { key: "partner_name",    label: "Partner Name",      type: "text" },
+    { key: "partner_country", label: "Country",            type: "text" },
+    { key: "partner_type",    label: "Partner Type",      type: "select", options: ["academic","industry","research","international","government"] },
+    { key: "mou_type",        label: "MoU Type",            type: "text" },
+    { key: "signed_date",     label: "Signed Date",        type: "date" },
+    { key: "purpose",         label: "Purpose",          type: "textarea" },
+    { key: "valid_until",     label: "Valid Until",      type: "date" },
+    { key: "activities_conducted", label: "Activities Conducted", type: "number" },
+    { key: "is_active",       label: "Active",           type: "checkbox" },
+    { key: "remarks",         label: "Remarks",            type: "textarea" },
   ],
   events: [
+    { key: "title",                label: "Title",               type: "text" },
+    { key: "event_type",          label: "Event Type",          type: "select", options: ["conference","workshop","seminar","fdp","webinar","cultural","sports","other"] },
+    { key: "is_organized",        label: "Organized (vs Attended)", type: "checkbox" },
+    { key: "start_date",          label: "Start Date",          type: "date" },
+    { key: "end_date",            label: "End Date",            type: "date" },
+    { key: "duration_days",       label: "Duration (Days)",       type: "number" },
+    { key: "venue",                label: "Venue",                type: "text" },
     { key: "participants_count",   label: "Participants",         type: "number" },
     { key: "faculty_participants", label: "Faculty Participants", type: "number" },
     { key: "student_participants", label: "Student Participants", type: "number" },
-    { key: "venue",                label: "Venue",                type: "text" },
+    { key: "external_participants",label: "External Participants",type: "number" },
+    { key: "is_international",    label: "International",       type: "checkbox" },
+    { key: "funding_amount",      label: "Funding Amount (₹)",  type: "number" },
+    { key: "remarks",             label: "Remarks",              type: "textarea" },
   ],
   energy: [
+    { key: "month",                  label: "Month (1-12)",        type: "number" },
     { key: "electricity_kwh",      label: "Grid (kWh)",          type: "number", step: "0.01" },
-    { key: "solar_kwh",            label: "Solar (kWh)",         type: "number", step: "0.01" },
-    { key: "diesel_liters",        label: "Diesel (L)",          type: "number", step: "0.01" },
     { key: "electricity_cost_inr", label: "Bill (₹)",            type: "number" },
+    { key: "solar_kwh",            label: "Solar (kWh)",         type: "number", step: "0.01" },
+    { key: "wind_kwh",              label: "Wind (kWh)",          type: "number", step: "0.01" },
+    { key: "other_renewable_kwh",  label: "Other Renewable (kWh)",type: "number", step: "0.01" },
+    { key: "diesel_liters",        label: "Diesel (L)",          type: "number", step: "0.01" },
+    { key: "lpg_kg",                label: "LPG (kg)",             type: "number", step: "0.01" },
+    { key: "cng_kg",                label: "CNG (kg)",             type: "number", step: "0.01" },
     { key: "ghg_scope1_tco2e",     label: "GHG Scope 1",         type: "number", step: "0.001" },
     { key: "ghg_scope2_tco2e",     label: "GHG Scope 2",         type: "number", step: "0.001" },
+    { key: "remarks",               label: "Remarks",              type: "textarea" },
   ],
   water: [
+    { key: "month",                  label: "Month (1-12)",       type: "number" },
     { key: "municipal_kl",           label: "Municipal (kL)",    type: "number", step: "0.01" },
     { key: "borewell_kl",            label: "Borewell (kL)",     type: "number", step: "0.01" },
     { key: "rainwater_harvested_kl", label: "Rainwater (kL)",    type: "number", step: "0.01" },
     { key: "recycled_treated_kl",    label: "Recycled (kL)",     type: "number", step: "0.01" },
+    { key: "cost_inr",               label: "Cost (₹)",           type: "number" },
+    { key: "remarks",                label: "Remarks",             type: "textarea" },
   ],
   waste: [
-    { key: "generated_kg",    label: "Generated (kg)",   type: "number", step: "0.01" },
+    { key: "month",           label: "Month (1-12)",     type: "number" },
+    { key: "waste_type",      label: "Waste Type",       type: "select", options: ["solid","biomedical","ewaste","hazardous","recyclable"] },
+    { key: "generated_kg",    label: "Generated (kg)",    type: "number", step: "0.01" },
     { key: "recycled_kg",     label: "Recycled (kg)",    type: "number", step: "0.01" },
     { key: "disposed_kg",     label: "Disposed (kg)",    type: "number", step: "0.01" },
     { key: "disposal_method", label: "Disposal Method",  type: "text" },
+    { key: "vendor_name",     label: "Vendor",           type: "text" },
+    { key: "cost_inr",        label: "Cost (₹)",          type: "number" },
+    { key: "remarks",         label: "Remarks",            type: "textarea" },
   ],
   awards: [
-    { key: "awarding_body",   label: "Awarding Body",    type: "text" },
-    { key: "award_date",      label: "Award Date",       type: "date" },
-    { key: "is_international",label: "International",    type: "checkbox" },
-    { key: "remarks",         label: "Remarks",          type: "textarea" },
+    { key: "title",             label: "Award",              type: "text" },
+    { key: "awarding_body",     label: "Awarding Body",      type: "text" },
+    { key: "recipient_name",    label: "Recipient",         type: "text" },
+    { key: "recipient_type",    label: "Recipient Type",     type: "text" },
+    { key: "award_date",        label: "Award Date",        type: "date" },
+    { key: "category",          label: "Category",           type: "text" },
+    { key: "is_national",       label: "National",           type: "checkbox" },
+    { key: "is_international",  label: "International",     type: "checkbox" },
+    { key: "prize_amount",      label: "Prize Amount (₹)",  type: "number" },
+    { key: "remarks",           label: "Remarks",             type: "textarea" },
   ],
   sdg: [
-    { key: "beneficiaries_count", label: "Beneficiaries", type: "number" },
+    { key: "title",               label: "Activity",       type: "text" },
+    { key: "description",         label: "Description",     type: "textarea" },
+    { key: "activity_type",       label: "Type",             type: "text" },
+    { key: "sdg_primary",         label: "SDG Goal (1-17)", type: "number" },
+    { key: "sdg_secondary",       label: "Secondary SDGs",   type: "text" },
+    { key: "beneficiaries_count", label: "Beneficiaries",   type: "number" },
     { key: "investment_inr",      label: "Investment (₹)", type: "number" },
-    { key: "remarks",             label: "Remarks",        type: "textarea" },
+    { key: "outcome",             label: "Outcome",         type: "textarea" },
+    { key: "remarks",             label: "Remarks",           type: "textarea" },
   ],
 };
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
+// ── Error boundary ──────────────────────────────────────────────────────────────
+// Safety net: if any future bug throws during render (bad data shape, etc.),
+// this shows a recoverable message instead of the blank white screen that
+// happens by default when an uncaught error unmounts the whole React tree.
+
+class MasterDataErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("Master Data page crashed:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex h-full items-center justify-center p-8">
+          <div className="max-w-md text-center space-y-3">
+            <AlertCircle className="w-8 h-8 text-destructive mx-auto" />
+            <h2 className="font-semibold text-foreground">Something went wrong</h2>
+            <p className="text-sm text-muted-foreground">
+              This page hit an unexpected error and couldn't continue rendering.
+              Try again — if it keeps happening on the same record, that record
+              likely has a data value the UI doesn't handle yet.
+            </p>
+            <p className="text-xs font-mono text-muted-foreground bg-muted rounded-lg px-3 py-2 break-words">
+              {this.state.error.message}
+            </p>
+            <button
+              onClick={() => this.setState({ error: null })}
+              className="px-4 py-2 text-sm font-medium bg-[#003087] hover:bg-[#002266] text-white rounded-lg transition"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function MasterDataPage() {
+  return (
+    <MasterDataErrorBoundary>
+      <MasterDataPageInner />
+    </MasterDataErrorBoundary>
+  );
+}
+
+function MasterDataPageInner() {
   const [activeTab, setActiveTab] = useState("faculty");
   const [year, setYear] = useState("2024-25");
   const [search, setSearch] = useState("");
@@ -716,6 +859,31 @@ function TemplateEditorModal({ entity, entityLabel, onClose }: {
 
 // ── Record Edit Modal ──────────────────────────────────────────────────────────
 
+// FastAPI error responses come in different shapes depending on the failure:
+//   - HTTPException(detail="some string")          -> detail is a string
+//   - Pydantic validation error (422)               -> detail is an ARRAY of
+//     objects like [{type, loc, msg, input}, ...]
+// Rendering that array directly as JSX ({error}) crashes the whole page with
+// "Objects are not valid as a React child" — no error boundary catches it,
+// so the entire app unmounts to a blank screen. This always converts to a
+// plain string first, however the backend responds.
+function extractErrorMessage(e: any): string {
+  const detail = e?.response?.data?.detail;
+  if (!detail) return e?.message || "Failed to save.";
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d: any) => {
+        if (typeof d === "string") return d;
+        const field = Array.isArray(d?.loc) ? d.loc[d.loc.length - 1] : d?.loc;
+        return field ? `${field}: ${d?.msg ?? "invalid value"}` : (d?.msg ?? "invalid value");
+      })
+      .join("; ");
+  }
+  if (typeof detail === "object") return detail.msg ?? JSON.stringify(detail);
+  return String(detail);
+}
+
 function RecordEditModal({ entity, row, fields, onClose, onSaved }: {
   entity: string; row: any; fields: EditFieldDef[]; onClose: () => void; onSaved: () => void;
 }) {
@@ -731,12 +899,23 @@ function RecordEditModal({ entity, row, fields, onClose, onSaved }: {
       const payload: Record<string, any> = {};
       for (const f of fields) {
         const v = values[f.key];
-        payload[f.key] = f.type === "number" ? (v === "" || v === null ? null : Number(v)) : v;
+        if (f.type === "number") {
+          payload[f.key] = v === "" || v === null || v === undefined ? null : Number(v);
+        } else if (f.type === "date") {
+          // Empty date input must be sent as null, not "" — an empty string
+          // fails backend date validation and previously crashed the page
+          // (see error-rendering fix below for why that happened).
+          payload[f.key] = v === "" || v === null || v === undefined ? null : v;
+        } else if (f.type === "select") {
+          payload[f.key] = v === "" ? null : v;
+        } else {
+          payload[f.key] = v;
+        }
       }
       return (await apiClient.put(`/master/${entity}/${row.id}`, payload)).data;
     },
     onSuccess: onSaved,
-    onError: (e: any) => setError(e?.response?.data?.detail || "Failed to save."),
+    onError: (e: any) => setError(extractErrorMessage(e)),
   });
 
   const displayName = row.full_name || row.title || row.partner_name || row.student_name || row.recipient_name || row.enrollment_no || row.employee_id || "Record";
