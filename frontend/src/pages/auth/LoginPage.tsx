@@ -30,26 +30,39 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left panel — branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#003087] flex-col justify-between p-12">
-        <div className="flex items-center gap-3">
-          
-            <img
+      <div
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden"
+        style={{ background: "linear-gradient(145deg, #0B1E4A 0%, #0e2456 60%, #0B1E4A 100%)" }}
+      >
+        {/* Decorative circles */}
+        <div
+          className="absolute -top-20 -right-20 w-64 h-64 rounded-full pointer-events-none"
+          style={{ background: "rgba(196,30,58,0.12)" }}
+        />
+        <div
+          className="absolute -bottom-16 -left-16 w-52 h-52 rounded-full pointer-events-none"
+          style={{ background: "rgba(212,167,0,0.08)" }}
+        />
+
+        {/* Logo row — unchanged */}
+        <div className="flex items-center gap-3 relative z-10">
+          <img
             src="/Logo_IQAC.png"
             alt="IQAC Ganpat University"
             className="w-16 h-16 object-contain"
           />
-          
           <span className="text-white font-semibold text-lg">IQAC Platform</span>
         </div>
 
-        <div className="space-y-6">
+        {/* Hero — only color values changed */}
+        <div className="space-y-6 relative z-10">
           <div>
             <h1 className="text-4xl font-bold text-white leading-tight">
               Data Automation
               <br />
-              <span className="text-[#C9A227]">Platform</span>
+              <span style={{ color: "#D4A700" }}>Platform</span>
             </h1>
-            <p className="mt-4 text-white/70 text-lg leading-relaxed">
+            <p className="mt-4 text-lg leading-relaxed" style={{ color: "rgba(255,255,255,0.65)" }}>
               Centralized institutional data management for accreditation,
               rankings, and compliance reporting.
             </p>
@@ -64,16 +77,22 @@ export default function LoginPage() {
             ].map((item) => (
               <div
                 key={item.label}
-                className="bg-white/10 rounded-xl p-4 border border-white/10"
+                className="rounded-xl p-4"
+                style={{
+                  background: "rgba(255,255,255,0.07)",
+                  border: "0.5px solid rgba(212,167,0,0.25)",
+                }}
               >
                 <div className="text-white font-semibold">{item.label}</div>
-                <div className="text-white/60 text-sm">{item.desc}</div>
+                <div className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+                  {item.desc}
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="text-white/40 text-sm">
+        <div className="text-sm relative z-10" style={{ color: "rgba(255,255,255,0.35)" }}>
           Ganpat University • Internal Quality Assurance Cell
         </div>
       </div>
@@ -81,15 +100,23 @@ export default function LoginPage() {
       {/* Right panel — login form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md space-y-8">
-          {/* Mobile logo */}
+          {/* Mobile logo — unchanged */}
           <div className="lg:hidden flex items-center gap-2">
             <img
               src="/Logo_IQAC.png"
               alt="IQAC Ganpat University"
               className="w-16 h-16 object-contain"
             />
-            <span className="font-semibold text-[#003087]">IQAC Platform</span>
+            <span className="font-semibold" style={{ color: "#0B1E4A" }}>
+              IQAC Platform
+            </span>
           </div>
+
+          {/* Gold accent bar */}
+          <div
+            className="h-1 w-10 rounded-full"
+            style={{ background: "linear-gradient(90deg, #D4A700, #C41E3A, #0B1E4A)" }}
+          />
 
           <div>
             <h2 className="text-2xl font-bold text-foreground">Welcome back</h2>
@@ -119,7 +146,7 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 placeholder="you@ganpatuniversity.ac.in"
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#003087] transition ${
+                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#0B1E4A] focus:border-transparent transition ${
                   errors.email ? "border-destructive" : "border-input"
                 }`}
                 {...register("email", {
@@ -146,7 +173,8 @@ export default function LoginPage() {
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="text-xs text-[#003087] hover:underline"
+                  className="text-xs hover:underline"
+                  style={{ color: "#C41E3A" }}
                 >
                   Forgot password?
                 </Link>
@@ -157,7 +185,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#003087] transition ${
+                  className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#0B1E4A] focus:border-transparent transition ${
                     errors.password ? "border-destructive" : "border-input"
                   }`}
                   {...register("password", {
@@ -189,7 +217,10 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#003087] hover:bg-[#002266] text-white font-medium py-2.5 text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 rounded-lg text-white font-medium py-2.5 text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{ background: "#0B1E4A" }}
+              onMouseEnter={(e) => !isLoggingIn && (e.currentTarget.style.background = "#C41E3A")}
+              onMouseLeave={(e) => !isLoggingIn && (e.currentTarget.style.background = "#0B1E4A")}
             >
               {isLoggingIn ? (
                 <>
