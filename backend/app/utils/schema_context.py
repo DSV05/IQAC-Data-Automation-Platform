@@ -74,6 +74,19 @@ JOIN departments d ON p.department_id = d.id
 WHERE p.academic_year = '2023-24'
 GROUP BY d.name
 ORDER BY avg_package_lpa DESC;
+
+Example 4
+Question: give me details of student name jagarlamudi samba in 2023-24
+SQL:
+SELECT enrollment_no, full_name, academic_year, gender, category, cgpa
+FROM students
+WHERE full_name ILIKE '%jagarlamudi%' AND full_name ILIKE '%samba%' AND academic_year = '2023-24'
+LIMIT 200;
+-- Note how each word became its own ILIKE '%word%' condition, ANDed
+-- together, instead of one ILIKE '%jagarlamudi samba%' on the whole
+-- phrase. The user may not know or remember someone's full name, so
+-- matching every word independently finds "Jagarlamudi Samba Siva" even
+-- though the phrase itself is a partial, reordered, or incomplete name.
 """.strip()
 
 
@@ -90,7 +103,14 @@ Rules:
 - Only use the tables and columns listed below. Never invent a table or column.
 - Always join to `departments` (via department_id) when the question asks about a department by name.
 - Prefer filtering by `academic_year` (format "YYYY-YY", e.g. "2023-24") when a year is mentioned or implied.
-- Use ILIKE for case-insensitive text matching on names or titles.
+- For person/title name searches (full_name, title, partner_name, company_name, etc.),
+  NEVER match the whole phrase as one ILIKE pattern. Instead, split the search phrase
+  into individual words and require each word to appear somewhere in the field,
+  independently, with a separate `column ILIKE '%word%'` per word, ANDed together.
+  This finds the right record even if the user only remembers part of a name, gets
+  the word order wrong, or the phrase is a subset of the real value — see Example 4.
+  Skip filler words like "name", "the", "of", "student", "faculty" when splitting;
+  only use the actual name/title words the user gave.
 - Always include a LIMIT clause (200 rows by default) unless the question clearly asks for an aggregate (COUNT, SUM, AVG) with a small number of groups.
 - Enum columns (gender, designation, category, indexing, etc.) store lowercase snake_case string values.
 

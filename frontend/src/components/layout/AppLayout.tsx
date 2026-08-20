@@ -47,21 +47,30 @@ export default function AppLayout() {
       {/* Sidebar */}
       <aside
         className={`${
-          sidebarOpen ? "w-60" : "w-16"
+          sidebarOpen ? "w-60" : "w-20"
         } flex-shrink-0 flex flex-col bg-[#003087] transition-all duration-300 overflow-hidden`}
       >
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
-          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-            <ShieldCheck className="w-5 h-5 text-white" />
-          </div>
-          {sidebarOpen && (
-            <div className="min-w-0">
-              <div className="text-white font-bold text-sm leading-tight truncate">IQAC Platform</div>
-              <div className="text-white/50 text-xs truncate">Ganpat University</div>
+                    {/* Logo */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
+              <div className="w-16 h-16 flex items-center justify-center flex-shrink-0">
+                <img
+                  src="/IQAC_Logo.png"
+                  alt="IQAC Ganpat University"
+                  className="w-16 h-16 object-contain"
+                />
+              </div>
+
+              {sidebarOpen && (
+                <div className="min-w-0">
+                  <div className="text-white font-bold text-sm leading-tight truncate">
+                    IQAC Platform
+                  </div>
+                  <div className="text-white/50 text-xs truncate">
+                    Ganpat University
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
         {/* Nav */}
         <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">

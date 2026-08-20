@@ -4,13 +4,14 @@ import {
   History, Sparkles, Database, Clock, Table as TableIcon,
 } from "lucide-react";
 import { aiSearchService } from "@/services/ai-search.service";
+import { usePersistedState } from "@/hooks/usePersistedState";
 import type { AIQueryHistoryItem, AISchemaInfo, NLQueryResponse } from "@/types";
 
 export default function AISearchPage() {
   const [info, setInfo] = useState<AISchemaInfo | null>(null);
-  const [question, setQuestion] = useState("");
+  const [question, setQuestion] = usePersistedState("ai_search:question", "");
   const [asking, setAsking] = useState(false);
-  const [result, setResult] = useState<NLQueryResponse | null>(null);
+  const [result, setResult] = usePersistedState<NLQueryResponse | null>("ai_search:result", null);
   const [history, setHistory] = useState<AIQueryHistoryItem[]>([]);
   const [copied, setCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -62,15 +63,26 @@ export default function AISearchPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Bot className="w-6 h-6 text-[#003087]" />
-          AI Natural Language Search
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Ask a question in plain English — the AI generates a read-only SQL query, runs it
-          against your master data, and shows you exactly what it ran.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Bot className="w-6 h-6 text-[#003087]" />
+            AI Natural Language Search
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Ask a question in plain English — the AI generates a read-only SQL query, runs it
+            against your master data, and shows you exactly what it ran.
+          </p>
+        </div>
+        {result && (
+          <button
+            onClick={() => { setResult(null); setQuestion(""); }}
+            disabled={asking}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive/40 rounded-lg px-3 py-1.5 transition disabled:opacity-50 flex-shrink-0"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {info && !info.ai_configured && (

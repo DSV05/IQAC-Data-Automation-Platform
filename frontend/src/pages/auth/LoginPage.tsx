@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
-import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 interface LoginFormData {
@@ -32,9 +32,13 @@ export default function LoginPage() {
       {/* Left panel — branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#003087] flex-col justify-between p-12">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-            <ShieldCheck className="w-6 h-6 text-white" />
-          </div>
+          
+            <img
+            src="/Logo_IQAC.png"
+            alt="IQAC Ganpat University"
+            className="w-16 h-16 object-contain"
+          />
+          
           <span className="text-white font-semibold text-lg">IQAC Platform</span>
         </div>
 
@@ -79,7 +83,11 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2">
-            <ShieldCheck className="w-7 h-7 text-[#003087]" />
+            <img
+              src="/Logo_IQAC.png"
+              alt="IQAC Ganpat University"
+              className="w-16 h-16 object-contain"
+            />
             <span className="font-semibold text-[#003087]">IQAC Platform</span>
           </div>
 

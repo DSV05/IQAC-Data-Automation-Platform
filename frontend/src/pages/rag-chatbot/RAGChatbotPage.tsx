@@ -4,6 +4,7 @@ import {
   CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp, AlertTriangle,
 } from "lucide-react";
 import { ragService } from "@/services/rag.service";
+import { usePersistedState } from "@/hooks/usePersistedState";
 import type {
   RAGChatResponse, RAGDocumentItem, RAGDocumentType, RAGInfo,
 } from "@/types";
@@ -31,11 +32,37 @@ export default function RAGChatbotPage() {
   const [uploadYear, setUploadYear] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [question, setQuestion] = useState("");
-  const [selectedDocId, setSelectedDocId] = useState<string>("");
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [question, setQuestion] = usePersistedState("rag_chat:question", "");
+  const [selectedDocId, setSelectedDocId] = usePersistedState("rag_chat:selectedDocId", "");
+  const [turns, setTurns] = usePersistedState<ChatTurn[]>("rag_chat:turns", []);
   const [expandedSources, setExpandedSources] = useState<Record<number, boolean>>({});
   const asking = turns.length > 0 && turns[turns.length - 1].loading;
+
+  // If the tab was closed/navigated away mid-answer, the restored transcript
+  // would otherwise show a permanently-spinning last turn — fix it up once
+  // on load instead of leaving a stuck loading state.
+  useEffect(() => {
+    setTurns((prev) => {
+      if (prev.length === 0 || !prev[prev.length - 1].loading) return prev;
+      const fixed = [...prev];
+      fixed[fixed.length - 1] = {
+        ...fixed[fixed.length - 1],
+        loading: false,
+        response: {
+          id: "interrupted",
+          question: fixed[fixed.length - 1].question,
+          answer: null,
+          sources: [],
+          status: "error",
+          execution_ms: null,
+          error_message: "This question was interrupted (page was left before it finished). Please ask again.",
+          ai_provider: null,
+        },
+      };
+      return fixed;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     loadInfo();
@@ -121,15 +148,26 @@ export default function RAGChatbotPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <MessageSquareText className="w-6 h-6 text-[#003087]" />
-          RAG Chatbot — Document Q&A
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Upload NAAC SSR, Annual Reports, or NIRF submissions, then ask questions in plain
-          English — answers are grounded in your documents and cite the exact page they came from.
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <MessageSquareText className="w-6 h-6 text-[#003087]" />
+            RAG Chatbot — Document Q&A
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Upload NAAC SSR, Annual Reports, or NIRF submissions, then ask questions in plain
+            English — answers are grounded in your documents and cite the exact page they came from.
+          </p>
+        </div>
+        {turns.length > 0 && (
+          <button
+            onClick={() => { setTurns([]); setQuestion(""); }}
+            disabled={asking}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive/40 rounded-lg px-3 py-1.5 transition disabled:opacity-50 flex-shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Clear chat
+          </button>
+        )}
       </div>
 
       {info && !info.ai_configured && (
