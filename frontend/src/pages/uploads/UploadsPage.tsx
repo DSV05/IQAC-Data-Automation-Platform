@@ -28,10 +28,6 @@ const ENTITY_TYPES = [
   { value: "sdg_activities", label: "SDG Activities",    template: true },
 ];
 
-// Entities whose natural key (enrollment_no, employee_id) lets Update Mode
-// find and patch existing records instead of only inserting new ones.
-const UPDATE_MODE_SUPPORTED = ["students", "faculty"];
-
 const STATUS_ICONS = {
   completed: <CheckCircle className="w-4 h-4 text-green-600" />,
   partial:   <AlertTriangle className="w-4 h-4 text-amber-500" />,
@@ -53,7 +49,6 @@ export default function UploadsPage() {
   const [file, setFile] = useState<File | null>(null);
   const [entityType, setEntityType] = useState("faculty");
   const [academicYear, setAcademicYear] = useState("2024-25");
-  const [uploadMode, setUploadMode] = useState<"insert" | "update">("insert");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<any>(null);
@@ -111,7 +106,6 @@ export default function UploadsPage() {
       const res = await uploadService.uploadFile(
         file, entityType, academicYear, undefined,
         (pct) => setProgress(pct),
-        supportsUpdateMode ? uploadMode : "insert",
       );
       setResult(res);
       setFile(null);
@@ -132,7 +126,6 @@ export default function UploadsPage() {
   };
 
   const selectedEntity = ENTITY_TYPES.find((e) => e.value === entityType);
-  const supportsUpdateMode = UPDATE_MODE_SUPPORTED.includes(entityType);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -140,7 +133,8 @@ export default function UploadsPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Data Upload</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Upload Excel or CSV files to populate master data tables. Download templates to ensure correct format.
+          Download current data (or a blank template), edit it, and upload it back —
+          changes update existing records, new rows get added, nothing else is touched.
         </p>
       </div>
 
@@ -159,10 +153,7 @@ export default function UploadsPage() {
                 <label className="text-sm font-medium text-foreground">Data Type</label>
                 <select
                   value={entityType}
-                  onChange={(e) => {
-                    setEntityType(e.target.value);
-                    if (!UPDATE_MODE_SUPPORTED.includes(e.target.value)) setUploadMode("insert");
-                  }}
+                  onChange={(e) => setEntityType(e.target.value)}
                   className="w-full rounded-lg border border-input bg-background text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003087]"
                   disabled={uploading}
                 >
@@ -186,63 +177,21 @@ export default function UploadsPage() {
               </div>
             </div>
 
-            {/* Update Mode toggle */}
-            {supportsUpdateMode && (
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Upload Mode</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setUploadMode("insert")}
-                    disabled={uploading}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                      uploadMode === "insert"
-                        ? "border-[#003087] bg-[#003087]/5 text-[#003087]"
-                        : "border-input text-muted-foreground hover:bg-muted/40"
-                    }`}
-                  >
-                    Insert New Records
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUploadMode("update")}
-                    disabled={uploading}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                      uploadMode === "update"
-                        ? "border-[#003087] bg-[#003087]/5 text-[#003087]"
-                        : "border-input text-muted-foreground hover:bg-muted/40"
-                    }`}
-                  >
-                    Update Existing Records
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {uploadMode === "update" ? (
-                    <>
-                      Only the ID column ({entityType === "students" ? "Enrollment No" : "Employee ID"}) is required
-                      — include just that plus whichever fields you want to change (e.g. CGPA). Rows with no
-                      matching existing record are skipped, not inserted.
-                    </>
-                  ) : (
-                    <>Creates new records. If a row matches an existing record, it updates that record instead of failing.</>
-                  )}
-                </p>
-              </div>
-            )}
-
-            {/* Template download */}
+            {/* Template / current-data download */}
             {selectedEntity?.template && (
               <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-4 py-3 text-sm">
                 <FileSpreadsheet className="w-4 h-4 text-[#003087] flex-shrink-0" />
                 <span className="text-muted-foreground flex-1">
-                  Download the template to ensure correct column format
+                  Downloads all current {academicYear} records (or a blank template if there are
+                  none yet). Edit, add, or leave rows as-is, then upload the same file back —
+                  changed cells update, new rows insert, everything else stays untouched.
                 </span>
                 <button
-                  onClick={() => uploadService.downloadTemplate(entityType)}
+                  onClick={() => uploadService.downloadTemplate(entityType, academicYear)}
                   className="flex items-center gap-1.5 text-[#003087] font-medium hover:underline whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  Template
+                  Download
                 </button>
               </div>
             )}

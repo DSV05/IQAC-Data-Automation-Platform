@@ -7,14 +7,12 @@ export const uploadService = {
     academicYear: string,
     departmentId?: string,
     onProgress?: (pct: number) => void,
-    mode: "insert" | "update" = "insert",
   ) => {
     const form = new FormData();
     form.append("file", file);
     form.append("entity_type", entityType);
     form.append("academic_year", academicYear);
     if (departmentId) form.append("department_id", departmentId);
-    form.append("mode", mode);
 
     const res = await apiClient.post("/uploads", form, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -47,11 +45,16 @@ export const uploadService = {
     downloadBlob(res, `error_report_${jobId}.xlsx`);
   },
 
-  downloadTemplate: async (entityType: string) => {
+  // academicYear: when given, the downloaded file is pre-filled with all
+  // existing records for that year (plus a hidden Record ID column) so it
+  // can be edited and uploaded straight back as an update. Omit for a
+  // blank template.
+  downloadTemplate: async (entityType: string, academicYear?: string) => {
     const res = await apiClient.get(`/uploads/templates/${entityType}`, {
       responseType: "blob",
+      params: academicYear ? { academic_year: academicYear } : undefined,
     });
-    downloadBlob(res, `template_${entityType}.xlsx`);
+    downloadBlob(res, `${entityType}_${academicYear ?? "template"}.xlsx`);
   },
 
   deleteJob: async (jobId: string) => {

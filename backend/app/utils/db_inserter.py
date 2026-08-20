@@ -1,17 +1,60 @@
 """
-Database Inserter — inserts validated rows into master tables.
+Database Inserter — generic ID-based upsert engine.
+=====================================================
+Every exported/template file carries a hidden "Record ID" column (see
+excel_validator.py's RECORD_ID_FIELD). On upload:
+
+  - Row has a Record ID that matches an existing row -> only the fields
+    that actually changed are written (an untouched cell stays untouched).
+  - Row has no Record ID, or the ID doesn't match anything -> inserted as
+    a brand-new row.
+
+This works identically for every entity type — there is no per-entity
+"natural key" guessing anymore. A data operator can download the current
+data, add new rows at the bottom, edit any existing row's cells, leave
+everything else exactly as it was, and upload the same file back.
 """
 import uuid
-from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.master import (
-    EnergyRepository, EventRepository, FacultyRepository,
-    MoURepository, PatentRepository, PlacementRepository,
-    ResearchRepository, StudentRepository,
+    AwardRepository, EnergyRepository, EventRepository, FacultyRepository,
+    MoURepository, PatentRepository, PlacementRepository, ResearchRepository,
+    SDGRepository, StudentRepository, WasteRepository, WaterRepository,
 )
+
+# entity_type -> RepositoryClass. Matching on upload is always by Record ID
+# (see below) — this map is just how we find the right repo per entity.
+_REPO_MAP: dict[str, type] = {
+    "faculty": FacultyRepository,
+    "students": StudentRepository,
+    "research": ResearchRepository,
+    "patents": PatentRepository,
+    "placements": PlacementRepository,
+    "mous": MoURepository,
+    "events": EventRepository,
+    "energy": EnergyRepository,
+    "water": WaterRepository,
+    "waste": WasteRepository,
+    "awards": AwardRepository,
+    "sdg_activities": SDGRepository,
+}
+
+# entity_type -> fields required to be present for a NEW insert to succeed
+# without violating a DB NOT NULL constraint. NOT used for matching — only
+# to skip a single row cleanly instead of crashing the whole batch on a
+# foreign-key violation.
+_INSERT_REQUIRES: dict[str, list[str]] = {
+    "faculty": ["department_id"],
+    "students": ["department_id", "program_id"],
+    "research": ["department_id"],
+    "patents": ["department_id"],
+    "placements": ["department_id"],
+    # mous, events, energy, water, waste, awards, sdg_activities: no
+    # required FK — safe to insert with whatever the row provides.
+}
 
 
 async def insert_rows(
@@ -19,140 +62,64 @@ async def insert_rows(
     entity_type: str,
     valid_rows: list[dict],
     department_id: uuid.UUID | None = None,
-    mode: str = "insert",
+    mode: str = "insert",  # kept for API compatibility; matching is always by Record ID now
 ) -> tuple[int, int, int]:
     inserted = 0
     updated = 0
     skipped = 0
 
-    # Inject department_id if provided and not already set
+    repo_cls = _REPO_MAP.get(entity_type)
+    if repo_cls is None:
+        # Entity not yet wired up for upload at all (e.g. consultancy,
+        # higher_studies, funded_projects) — nothing to do.
+        return 0, 0, 0
+
+    repo = repo_cls(db)
+    required_for_insert = _INSERT_REQUIRES.get(entity_type, [])
+
+    # Inject department_id if provided and not already set on a row
     if department_id:
         for row in valid_rows:
             if not row.get("department_id"):
                 row["department_id"] = department_id
 
-    if entity_type == "faculty":
-        repo = FacultyRepository(db)
-        for row in valid_rows:
-            # Ensure required department_id exists
-            if not row.get("department_id"):
-                continue  # skip rows without department
-            existing = await repo.get_by_employee_year(
-                row.get("employee_id", ""), row.get("academic_year", "")
-            )
-            if existing:
-                update_fields = {
-                    k: v for k, v in row.items()
-                    if k not in ("employee_id", "academic_year", "department_id")
-                }
-                if update_fields:
-                    await repo.update(existing, **update_fields)
-                    updated += 1
-                else:
-                    skipped += 1
-            elif mode == "update":
-                # Update Mode + no matching employee found — the file likely only
-                # has the key plus a couple of fields, not a full faculty record,
-                # so skip rather than attempt an incomplete (and likely invalid) insert.
-                skipped += 1
+    for row in valid_rows:
+        record_id_raw = row.pop("_record_id", None)
+        record_id: uuid.UUID | None = None
+        if record_id_raw:
+            try:
+                record_id = uuid.UUID(str(record_id_raw))
+            except (ValueError, AttributeError):
+                record_id = None  # malformed/stray value — treat as a new row, don't error out
+
+        existing = await repo.get_by_id(record_id) if record_id else None
+
+        if existing is not None:
+            # Only write fields that actually changed, so untouched cells
+            # never overwrite good data with a stale re-upload.
+            changed = {
+                k: v for k, v in row.items()
+                if k != "academic_year" and getattr(existing, k, object()) != v
+            }
+            if changed:
+                await repo.update(existing, **changed)
+                updated += 1
             else:
+                skipped += 1
+            continue
+
+        # New row (no Record ID, or the ID didn't match anything we have —
+        # e.g. someone copy-pasted a row from a different year's export).
+        if any(not row.get(f) for f in required_for_insert):
+            # Would violate a NOT NULL constraint — skip this one row only,
+            # rest of the batch proceeds normally.
+            skipped += 1
+            continue
+        try:
+            async with db.begin_nested():
                 await repo.create(**row)
-                inserted += 1
-
-    elif entity_type == "students":
-        repo = StudentRepository(db)
-        for row in valid_rows:
-            existing = await repo.get_by_enrollment_year(
-                str(row.get("enrollment_no", "")), row.get("academic_year", "")
-            )
-            if existing:
-                update_fields = {
-                    k: v for k, v in row.items()
-                    if k not in ("enrollment_no", "academic_year")
-                }
-                if update_fields:
-                    await repo.update(existing, **update_fields)
-                    updated += 1
-                else:
-                    skipped += 1
-            elif mode == "update":
-                # Update Mode + no matching student found — the file likely only
-                # has the key plus a couple of fields (e.g. just CGPA), not a
-                # full student record, so skip rather than attempt a bad insert.
-                skipped += 1
-            elif not row.get("program_id"):
-                # A brand-new student needs a program — without it the insert
-                # would violate a NOT NULL constraint and (without a savepoint)
-                # could abort the rest of the batch, so skip cleanly instead.
-                skipped += 1
-            else:
-                try:
-                    async with db.begin_nested():
-                        await repo.create(**row)
-                    inserted += 1
-                except IntegrityError:
-                    skipped += 1
-
-    elif entity_type == "research":
-        repo = ResearchRepository(db)
-        for row in valid_rows:
-            if not row.get("department_id"):
-                continue
-            # Deduplicate by DOI
-            if row.get("doi"):
-                from sqlalchemy import select
-                from app.models.research import ResearchPublication
-                result = await db.execute(
-                    select(ResearchPublication).where(
-                        ResearchPublication.doi == row["doi"],
-                        ResearchPublication.academic_year == row.get("academic_year"),
-                    )
-                )
-                existing = result.scalar_one_or_none()
-                if existing:
-                    await repo.update(existing, citations=row.get("citations", existing.citations))
-                    updated += 1
-                    continue
-            await repo.create(**row)
             inserted += 1
-
-    elif entity_type == "patents":
-        repo = PatentRepository(db)
-        for row in valid_rows:
-            if not row.get("department_id"):
-                continue
-            await repo.create(**row)
-            inserted += 1
-
-    elif entity_type == "placements":
-        repo = PlacementRepository(db)
-        for row in valid_rows:
-            if not row.get("department_id"):
-                continue
-            await repo.create(**row)
-            inserted += 1
-
-    elif entity_type == "energy":
-        repo = EnergyRepository(db)
-        for row in valid_rows:
-            await repo.create(**row)
-            inserted += 1
-
-    elif entity_type == "mous":
-        repo = MoURepository(db)
-        for row in valid_rows:
-            await repo.create(**row)
-            inserted += 1
-
-    elif entity_type == "events":
-        repo = EventRepository(db)
-        for row in valid_rows:
-            await repo.create(**row)
-            inserted += 1
-
-    else:
-        # For entity types without a specific inserter, skip silently
-        # They will be added as each module is completed
-        pass
+        except IntegrityError:
+            skipped += 1
 
     return inserted, updated, skipped

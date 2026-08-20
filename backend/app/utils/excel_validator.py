@@ -13,6 +13,11 @@ import pandas as pd
 
 from app.utils.column_maps import ColumnSpec, get_all_aliases, get_column_specs, get_natural_keys, get_required_fields
 
+# Reserved header for the hidden identity column that ties an exported row
+# back to its database record. Present in every export/template; recognized
+# under a few common spellings in case someone renames the header.
+RECORD_ID_ALIASES = {"record id", "recordid", "row id", "rowid", "id", "_id"}
+
 # ── Value normalizers ─────────────────────────────────────────────────────────
 
 GENDER_MAP = {
@@ -182,6 +187,14 @@ class ExcelValidator:
             row_errors: list[RowError] = []
             clean: dict[str, Any] = {"academic_year": self.academic_year}
 
+            # Carry the Record ID straight through, no validation — it's an
+            # internal identity marker, not user-entered data. A malformed
+            # or stray value is handled downstream (treated as a new row),
+            # never as a validation error the operator has to fix.
+            record_id_raw = row.get("_record_id")
+            if record_id_raw is not None and str(record_id_raw).strip() not in ("", "nan", "NaN", "None"):
+                clean["_record_id"] = str(record_id_raw).strip()
+
             for spec in self.specs:
                 if spec.db_field not in df.columns:
                     continue
@@ -225,8 +238,11 @@ class ExcelValidator:
         rename: dict[str, str] = {}
         for col in df.columns:
             normalised = str(col).lower().strip().replace("\n", " ").replace("  ", " ")
-            normalised = normalised.rstrip("*").strip()   
-            if normalised in self.aliases:
+            normalised = normalised.rstrip("*").strip()
+            if normalised in RECORD_ID_ALIASES:
+                rename[col] = "_record_id"
+                mapping[col] = "_record_id"
+            elif normalised in self.aliases:
                 db_field = self.aliases[normalised]
                 rename[col] = db_field
                 mapping[col] = db_field

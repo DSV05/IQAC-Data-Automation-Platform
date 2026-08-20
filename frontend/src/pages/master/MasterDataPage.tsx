@@ -482,6 +482,10 @@ function MasterDataPageInner() {
       const v = entityLabels[c.key];
       if (v) params.append(`label_${c.key}`, v);
     });
+    // Include current data for the selected year — same unified "download,
+    // edit, upload back" flow as the Data Upload module. If there's no data
+    // yet for this year, the backend returns a blank template automatically.
+    params.append("academic_year", year);
     const qs = params.toString();
 
     apiClient.get(`/uploads/templates/${activeTabDef.templateKey}${qs ? `?${qs}` : ""}`, {
@@ -490,7 +494,7 @@ function MasterDataPageInner() {
       const blob = new Blob([res.data]);
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `template_${activeTabDef.templateKey}.xlsx`;
+      link.download = `${activeTabDef.templateKey}_${year}.xlsx`;
       link.click();
       URL.revokeObjectURL(link.href);
     });
@@ -548,13 +552,14 @@ function MasterDataPageInner() {
                 {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
 
-              {/* Download template — all roles */}
+              {/* Download current data (or blank template if none yet) — all roles */}
               <button
                 onClick={handleDownloadTemplate}
+                title={`Download all ${year} ${activeTabDef.label} records to edit and re-upload`}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#003087] text-[#003087] text-sm font-medium hover:bg-[#003087]/5 transition"
               >
                 <Download className="w-3.5 h-3.5" />
-                Download Template
+                Download Data
               </button>
 
               {/* Edit template — IQAC Admin + Super Admin only */}
