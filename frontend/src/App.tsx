@@ -16,6 +16,7 @@ import ReportsPage from "@/pages/reports/ReportsPage";
 import ExcelAutoFillPage from "@/pages/excel-autofill/ExcelAutoFillPage";
 import WorkflowPage from "@/pages/workflow/WorkflowPage";
 import NotificationsPage from "@/pages/notifications/NotificationsPage";
+import AuditLogsPage from "@/pages/audit/AuditLogsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
@@ -48,7 +49,7 @@ export default function App() {
             <Route path="/search" element={<Placeholder title="Global Search" />} />
             <Route path="/workflow" element={<WorkflowPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/audit" element={<Placeholder title="Audit Logs" />} />
+            <Route path="/audit" element={<AuditLogsPage />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

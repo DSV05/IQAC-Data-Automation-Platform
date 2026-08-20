@@ -46,7 +46,7 @@ async def list_programs(
     current_user: User = Depends(require_permission("faculty:read")),
     db: AsyncSession = Depends(get_db),
 ):
-    items, total = await ProgramRepository(db).list_by_year(academic_year, department_id)
+    items, total = await ProgramRepository(db, actor=current_user).list_by_year(academic_year, department_id)
     return {"items": [s.ProgramRead.model_validate(i) for i in items], "total": total, "page": 1, "size": 100, "pages": 1}
 
 
@@ -56,7 +56,7 @@ async def create_program(
     current_user: User = Depends(require_permission("faculty:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await ProgramRepository(db).create(**data.model_dump())
+    item = await ProgramRepository(db, actor=current_user).create(**data.model_dump())
     return s.ProgramRead.model_validate(item)
 
 
@@ -67,7 +67,7 @@ async def update_program(
     current_user: User = Depends(require_permission("faculty:update")),
     db: AsyncSession = Depends(get_db),
 ):
-    repo = ProgramRepository(db)
+    repo = ProgramRepository(db, actor=current_user)
     item = await repo.get_by_id(program_id)
     if not item:
         from fastapi import HTTPException
@@ -88,7 +88,7 @@ async def list_faculty(
     current_user: User = Depends(require_permission("faculty:read")),
     db: AsyncSession = Depends(get_db),
 ):
-    svc = FacultyService(FacultyRepository(db))
+    svc = FacultyService(FacultyRepository(db, actor=current_user))
     return await svc.list(academic_year, department_id, page, size, search)
 
 
@@ -98,7 +98,7 @@ async def create_faculty(
     current_user: User = Depends(require_permission("faculty:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    return await FacultyService(FacultyRepository(db)).create(data)
+    return await FacultyService(FacultyRepository(db, actor=current_user)).create(data)
 
 
 @router.get("/faculty/summary", response_model=dict)
@@ -107,7 +107,7 @@ async def faculty_summary(
     current_user: User = Depends(require_permission("faculty:read")),
     db: AsyncSession = Depends(get_db),
 ):
-    return await FacultyService(FacultyRepository(db)).summary(academic_year)
+    return await FacultyService(FacultyRepository(db, actor=current_user)).summary(academic_year)
 
 
 @router.get("/faculty/{record_id}", response_model=s.FacultyRead)
@@ -116,7 +116,7 @@ async def get_faculty(
     current_user: User = Depends(require_permission("faculty:read")),
     db: AsyncSession = Depends(get_db),
 ):
-    return await FacultyService(FacultyRepository(db)).get(record_id)
+    return await FacultyService(FacultyRepository(db, actor=current_user)).get(record_id)
 
 
 @router.put("/faculty/{record_id}", response_model=s.FacultyRead)
@@ -126,7 +126,7 @@ async def update_faculty(
     current_user: User = Depends(require_permission("faculty:update")),
     db: AsyncSession = Depends(get_db),
 ):
-    return await FacultyService(FacultyRepository(db)).update(record_id, data)
+    return await FacultyService(FacultyRepository(db, actor=current_user)).update(record_id, data)
 
 
 @router.delete("/faculty/{record_id}", status_code=204)
@@ -135,7 +135,7 @@ async def delete_faculty(
     current_user: User = Depends(require_permission("faculty:delete")),
     db: AsyncSession = Depends(get_db),
 ):
-    await FacultyService(FacultyRepository(db)).delete(record_id)
+    await FacultyService(FacultyRepository(db, actor=current_user)).delete(record_id)
 
 
 # ── Students ──────────────────────────────────────────────────────────────────
@@ -150,7 +150,7 @@ async def list_students(
     current_user: User = Depends(require_permission("students:read")),
     db: AsyncSession = Depends(get_db),
 ):
-    repo = StudentRepository(db)
+    repo = StudentRepository(db, actor=current_user)
     items, total = await repo.list_by_year(academic_year, department_id, program_id, page, size, search)
     import math
     return s.PaginatedStudents(
@@ -166,7 +166,7 @@ async def create_student(
     current_user: User = Depends(require_permission("students:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await StudentRepository(db).create(**data.model_dump())
+    item = await StudentRepository(db, actor=current_user).create(**data.model_dump())
     return s.StudentRead.model_validate(item)
 
 
@@ -176,7 +176,7 @@ async def student_summary(
     current_user: User = Depends(require_permission("students:read")),
     db: AsyncSession = Depends(get_db),
 ):
-    return await StudentRepository(db).count_by_year(academic_year)
+    return await StudentRepository(db, actor=current_user).count_by_year(academic_year)
 
 
 @router.get("/students/{record_id}", response_model=s.StudentRead)
@@ -186,7 +186,7 @@ async def get_student(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    item = await StudentRepository(db).get_by_id(record_id)
+    item = await StudentRepository(db, actor=current_user).get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Student not found")
     return s.StudentRead.model_validate(item)
@@ -200,7 +200,7 @@ async def update_student(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = StudentRepository(db)
+    repo = StudentRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -215,7 +215,7 @@ async def delete_student(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = StudentRepository(db)
+    repo = StudentRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -234,7 +234,7 @@ async def list_research(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await ResearchRepository(db).list_by_year(academic_year, department_id, page, size, search)
+    items, total = await ResearchRepository(db, actor=current_user).list_by_year(academic_year, department_id, page, size, search)
     return s.PaginatedResearch(
         items=[s.ResearchPublicationRead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -248,7 +248,7 @@ async def create_research(
     current_user: User = Depends(require_permission("research:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await ResearchRepository(db).create(**data.model_dump())
+    item = await ResearchRepository(db, actor=current_user).create(**data.model_dump())
     return s.ResearchPublicationRead.model_validate(item)
 
 
@@ -260,7 +260,7 @@ async def update_research(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = ResearchRepository(db)
+    repo = ResearchRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -275,7 +275,7 @@ async def delete_research(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = ResearchRepository(db)
+    repo = ResearchRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -294,7 +294,7 @@ async def list_patents(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await PatentRepository(db).list_by_year(academic_year, department_id, page, size, search)
+    items, total = await PatentRepository(db, actor=current_user).list_by_year(academic_year, department_id, page, size, search)
     return s.PaginatedPatents(
         items=[s.PatentRead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -308,7 +308,7 @@ async def create_patent(
     current_user: User = Depends(require_permission("research:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await PatentRepository(db).create(**data.model_dump())
+    item = await PatentRepository(db, actor=current_user).create(**data.model_dump())
     return s.PatentRead.model_validate(item)
 
 
@@ -320,7 +320,7 @@ async def update_patent(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = PatentRepository(db)
+    repo = PatentRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -340,7 +340,7 @@ async def list_placements(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await PlacementRepository(db).list_by_year(academic_year, department_id, page, size, search)
+    items, total = await PlacementRepository(db, actor=current_user).list_by_year(academic_year, department_id, page, size, search)
     return s.PaginatedPlacements(
         items=[s.PlacementRead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -354,7 +354,7 @@ async def create_placement(
     current_user: User = Depends(require_permission("placements:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await PlacementRepository(db).create(**data.model_dump())
+    item = await PlacementRepository(db, actor=current_user).create(**data.model_dump())
     return s.PlacementRead.model_validate(item)
 
 
@@ -364,7 +364,7 @@ async def placement_stats(
     current_user: User = Depends(require_permission("placements:read")),
     db: AsyncSession = Depends(get_db),
 ):
-    return await PlacementRepository(db).stats_by_year(academic_year)
+    return await PlacementRepository(db, actor=current_user).stats_by_year(academic_year)
 
 
 @router.put("/placements/{record_id}", response_model=s.PlacementRead)
@@ -375,7 +375,7 @@ async def update_placement(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = PlacementRepository(db)
+    repo = PlacementRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -394,7 +394,7 @@ async def list_energy(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await EnergyRepository(db).list_by_year(academic_year, page, size, search)
+    items, total = await EnergyRepository(db, actor=current_user).list_by_year(academic_year, page, size, search)
     return s.PaginatedEnergy(
         items=[s.EnergyRead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -408,7 +408,7 @@ async def create_energy(
     current_user: User = Depends(require_permission("faculty:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await EnergyRepository(db).create(**data.model_dump())
+    item = await EnergyRepository(db, actor=current_user).create(**data.model_dump())
     return s.EnergyRead.model_validate(item)
 
 
@@ -418,7 +418,7 @@ async def energy_totals(
     current_user: User = Depends(require_permission("dashboard:read")),
     db: AsyncSession = Depends(get_db),
 ):
-    return await EnergyRepository(db).totals_by_year(academic_year)
+    return await EnergyRepository(db, actor=current_user).totals_by_year(academic_year)
 
 
 @router.put("/energy/{record_id}", response_model=s.EnergyRead)
@@ -429,7 +429,7 @@ async def update_energy(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = EnergyRepository(db)
+    repo = EnergyRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -449,7 +449,7 @@ async def list_mous(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await MoURepository(db).list_by_year(academic_year, department_id, page, size, search)
+    items, total = await MoURepository(db, actor=current_user).list_by_year(academic_year, department_id, page, size, search)
     return s.PaginatedMoUs(
         items=[s.MoURead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -463,7 +463,7 @@ async def create_mou(
     current_user: User = Depends(require_permission("faculty:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await MoURepository(db).create(**data.model_dump())
+    item = await MoURepository(db, actor=current_user).create(**data.model_dump())
     return s.MoURead.model_validate(item)
 
 
@@ -475,7 +475,7 @@ async def update_mou(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = MoURepository(db)
+    repo = MoURepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -495,7 +495,7 @@ async def list_events(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await EventRepository(db).list_by_year(academic_year, department_id, page, size, search)
+    items, total = await EventRepository(db, actor=current_user).list_by_year(academic_year, department_id, page, size, search)
     return s.PaginatedEvents(
         items=[s.EventRead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -509,7 +509,7 @@ async def create_event(
     current_user: User = Depends(require_permission("faculty:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await EventRepository(db).create(**data.model_dump())
+    item = await EventRepository(db, actor=current_user).create(**data.model_dump())
     return s.EventRead.model_validate(item)
 
 
@@ -521,7 +521,7 @@ async def update_event(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = EventRepository(db)
+    repo = EventRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -536,7 +536,7 @@ async def list_accreditations(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    items = await AccreditationRepository(db).list_active()
+    items = await AccreditationRepository(db, actor=current_user).list_active()
     return [s.AccreditationRead.model_validate(i) for i in items]
 
 
@@ -546,7 +546,7 @@ async def create_accreditation(
     current_user: User = Depends(require_permission("master_data:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await AccreditationRepository(db).create(**data.model_dump())
+    item = await AccreditationRepository(db, actor=current_user).create(**data.model_dump())
     return s.AccreditationRead.model_validate(item)
 
 
@@ -562,7 +562,7 @@ async def list_sdg(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await SDGRepository(db).list_by_year(academic_year, sdg_goal, page, size, search)
+    items, total = await SDGRepository(db, actor=current_user).list_by_year(academic_year, sdg_goal, page, size, search)
     return s.PaginatedSDG(
         items=[s.SDGActivityRead.model_validate(i) for i in items],
         total=total, page=page, size=size,
@@ -576,7 +576,7 @@ async def create_sdg_activity(
     current_user: User = Depends(require_permission("faculty:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await SDGRepository(db).create(**data.model_dump())
+    item = await SDGRepository(db, actor=current_user).create(**data.model_dump())
     return s.SDGActivityRead.model_validate(item)
 
 
@@ -588,7 +588,7 @@ async def update_sdg_activity(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = SDGRepository(db)
+    repo = SDGRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -607,7 +607,7 @@ async def list_water(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await WaterRepository(db).list_by_year(academic_year, page, size, search)
+    items, total = await WaterRepository(db, actor=current_user).list_by_year(academic_year, page, size, search)
     return {
         "items": [s.WaterRead.model_validate(i) for i in items],
         "total": total, "page": page, "size": size,
@@ -621,7 +621,7 @@ async def create_water(
     current_user: User = Depends(require_permission("faculty:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await WaterRepository(db).create(**data.model_dump())
+    item = await WaterRepository(db, actor=current_user).create(**data.model_dump())
     return s.WaterRead.model_validate(item)
 
 
@@ -633,7 +633,7 @@ async def update_water(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = WaterRepository(db)
+    repo = WaterRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -648,7 +648,7 @@ async def delete_water(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = WaterRepository(db)
+    repo = WaterRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -666,7 +666,7 @@ async def list_waste(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await WasteRepository(db).list_by_year(academic_year, page, size, search)
+    items, total = await WasteRepository(db, actor=current_user).list_by_year(academic_year, page, size, search)
     return {
         "items": [s.WasteRead.model_validate(i) for i in items],
         "total": total, "page": page, "size": size,
@@ -680,7 +680,7 @@ async def create_waste(
     current_user: User = Depends(require_permission("faculty:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await WasteRepository(db).create(**data.model_dump())
+    item = await WasteRepository(db, actor=current_user).create(**data.model_dump())
     return s.WasteRead.model_validate(item)
 
 
@@ -692,7 +692,7 @@ async def update_waste(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = WasteRepository(db)
+    repo = WasteRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -707,7 +707,7 @@ async def delete_waste(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = WasteRepository(db)
+    repo = WasteRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -726,7 +726,7 @@ async def list_awards(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await AwardRepository(db).list_by_year(academic_year, department_id, page, size, search)
+    items, total = await AwardRepository(db, actor=current_user).list_by_year(academic_year, department_id, page, size, search)
     return {
         "items": [s.AwardRead.model_validate(i) for i in items],
         "total": total, "page": page, "size": size,
@@ -740,7 +740,7 @@ async def create_award(
     current_user: User = Depends(require_permission("faculty:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await AwardRepository(db).create(**data.model_dump())
+    item = await AwardRepository(db, actor=current_user).create(**data.model_dump())
     return s.AwardRead.model_validate(item)
 
 
@@ -752,7 +752,7 @@ async def update_award(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = AwardRepository(db)
+    repo = AwardRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -767,7 +767,7 @@ async def delete_award(
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi import HTTPException
-    repo = AwardRepository(db)
+    repo = AwardRepository(db, actor=current_user)
     item = await repo.get_by_id(record_id)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -785,7 +785,7 @@ async def list_funded_projects(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await ProjectRepository(db).list_by_year(academic_year, department_id, page, size)
+    items, total = await ProjectRepository(db, actor=current_user).list_by_year(academic_year, department_id, page, size)
     return {
         "items": [s.FundedProjectRead.model_validate(i) for i in items],
         "total": total, "page": page, "size": size,
@@ -799,7 +799,7 @@ async def create_funded_project(
     current_user: User = Depends(require_permission("research:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await ProjectRepository(db).create(**data.model_dump())
+    item = await ProjectRepository(db, actor=current_user).create(**data.model_dump())
     return s.FundedProjectRead.model_validate(item)
 
 
@@ -814,7 +814,7 @@ async def list_higher_studies(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await HigherStudyRepository(db).list_by_year(academic_year, department_id, page, size)
+    items, total = await HigherStudyRepository(db, actor=current_user).list_by_year(academic_year, department_id, page, size)
     return {
         "items": [s.HigherStudyRead.model_validate(i) for i in items],
         "total": total, "page": page, "size": size,
@@ -828,7 +828,7 @@ async def create_higher_study(
     current_user: User = Depends(require_permission("students:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await HigherStudyRepository(db).create(**data.model_dump())
+    item = await HigherStudyRepository(db, actor=current_user).create(**data.model_dump())
     return s.HigherStudyRead.model_validate(item)
 
 
@@ -843,7 +843,7 @@ async def list_consultancy(
     db: AsyncSession = Depends(get_db),
 ):
     import math
-    items, total = await ConsultancyRepository(db).list_by_year(academic_year, department_id, page, size)
+    items, total = await ConsultancyRepository(db, actor=current_user).list_by_year(academic_year, department_id, page, size)
     return {
         "items": [s.ConsultancyRead.model_validate(i) for i in items],
         "total": total, "page": page, "size": size,
@@ -857,5 +857,5 @@ async def create_consultancy(
     current_user: User = Depends(require_permission("faculty:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    item = await ConsultancyRepository(db).create(**data.model_dump())
+    item = await ConsultancyRepository(db, actor=current_user).create(**data.model_dump())
     return s.ConsultancyRead.model_validate(item)

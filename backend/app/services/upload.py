@@ -122,7 +122,7 @@ class UploadService:
         if result.valid_rows:
             try:
                 inserted, updated, skipped_existing = await insert_rows(
-                    self.db, entity_type, result.valid_rows, department_id, mode=mode
+                    self.db, entity_type, result.valid_rows, department_id, mode=mode, actor=current_user
                 )
             except Exception as e:
                 logger.error("DB insertion error", error=str(e))

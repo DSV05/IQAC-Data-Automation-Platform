@@ -15,8 +15,20 @@ T = TypeVar("T")
 class BaseRepository(Generic[T]):
     model: type
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, actor: Any = None, source: str = "manual_edit") -> None:
+        """
+        actor: the currently-authenticated User performing this change, or
+        None. When set, create()/update()/delete() automatically write an
+        AuditLog entry with a before/after diff — every entity built on
+        this base repository gets audit logging for free.
+
+        source: "manual_edit" (default, e.g. the Master Data Edit modal)
+        or "upload" (bulk Excel/CSV upload) — shown in the audit log so
+        it's clear how a change was made.
+        """
         self.db = db
+        self.actor = actor
+        self.source = source
 
     async def get_by_id(self, record_id: uuid.UUID) -> Optional[Any]:
         result = await self.db.execute(
@@ -55,16 +67,24 @@ class BaseRepository(Generic[T]):
         self.db.add(instance)
         await self.db.flush()
         await self.db.refresh(instance)
+        if self.actor is not None:
+            await self._log("create", instance, before=None)
         return instance
 
     async def update(self, instance: Any, **kwargs: Any) -> Any:
+        before_snapshot = self._snapshot(instance) if self.actor is not None else None
         for key, value in kwargs.items():
             setattr(instance, key, value)
         await self.db.flush()
         await self.db.refresh(instance)
+        if self.actor is not None:
+            await self._log("update", instance, before=before_snapshot)
         return instance
 
     async def delete(self, instance: Any) -> None:
+        if self.actor is not None:
+            before_snapshot = self._snapshot(instance)
+            await self._log("delete", instance, before=before_snapshot, after_override={})
         await self.db.delete(instance)
         await self.db.flush()
 
@@ -74,3 +94,26 @@ class BaseRepository(Generic[T]):
             from sqlalchemy import and_
             q = q.where(and_(*filters))
         return (await self.db.execute(q)).scalar_one()
+
+    # ── Audit logging helpers ──────────────────────────────────────────────
+
+    @staticmethod
+    def _snapshot(instance: Any) -> dict:
+        return {c.name: getattr(instance, c.name, None) for c in instance.__table__.columns}
+
+    async def _log(self, action: str, instance: Any, before: dict | None, after_override: dict | None = None) -> None:
+        from app.services.audit import record_change
+
+        after = after_override if after_override is not None else self._snapshot(instance)
+        await record_change(
+            self.db,
+            entity_type=self.model.__tablename__,
+            entity_id=instance.id,
+            action=action,
+            changed_by=getattr(self.actor, "id", None),
+            changed_by_name=getattr(self.actor, "full_name", None),
+            before=before,
+            after=after,
+            academic_year=getattr(instance, "academic_year", None),
+            source=self.source,
+        )

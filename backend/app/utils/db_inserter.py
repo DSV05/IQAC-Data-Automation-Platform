@@ -63,6 +63,7 @@ async def insert_rows(
     valid_rows: list[dict],
     department_id: uuid.UUID | None = None,
     mode: str = "insert",  # kept for API compatibility; matching is always by Record ID now
+    actor: object | None = None,  # the uploading User, for audit logging
 ) -> tuple[int, int, int]:
     inserted = 0
     updated = 0
@@ -74,7 +75,7 @@ async def insert_rows(
         # higher_studies, funded_projects) — nothing to do.
         return 0, 0, 0
 
-    repo = repo_cls(db)
+    repo = repo_cls(db, actor=actor, source="upload")
     required_for_insert = _INSERT_REQUIRES.get(entity_type, [])
 
     # Inject department_id if provided and not already set on a row

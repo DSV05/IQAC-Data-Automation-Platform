@@ -23,6 +23,7 @@ from app.models.reports import ReportGenerationLog
 from app.models.excel_template import ExcelTemplate, ExcelFillLog
 from app.models.workflow import WorkflowSubmission, WorkflowHistoryEntry
 from app.models.notification import Notification, Deadline
+from app.models.audit import AuditLog
 
 config = context.config
 settings = get_settings()
