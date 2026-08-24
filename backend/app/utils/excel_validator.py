@@ -4,14 +4,19 @@ Excel Validation Engine
 Reads an uploaded .xlsx/.xls/.csv file and validates every row.
 """
 import re
+import zipfile
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
+from app.core.logging import get_logger
 from app.utils.column_maps import ColumnSpec, get_all_aliases, get_column_specs, get_natural_keys, get_required_fields
+
+logger = get_logger(__name__)
 
 # Reserved header for the hidden identity column that ties an exported row
 # back to its database record. Present in every export/template; recognized
@@ -237,7 +242,26 @@ class ExcelValidator:
         path = Path(file_path)
         suffix = path.suffix.lower()
         if suffix in (".xlsx", ".xlsm"):
-            df = pd.read_excel(file_path, engine="openpyxl", dtype=str)
+            try:
+                df = pd.read_excel(file_path, engine="openpyxl", dtype=str)
+            except TypeError as e:
+                # Files saved by non-Microsoft tools (WPS Office / Kingsoft,
+                # some LibreOffice builds) embed proprietary style metadata —
+                # e.g. <extLst><ext uri="smNativeData">...</ext></extLst> —
+                # inside <patternFill>/<font>/<border> elements in styles.xml.
+                # openpyxl's style classes don't accept these as constructor
+                # kwargs and raise TypeError before a single row is read.
+                # This metadata is purely decorative (theme/native-style
+                # hints); stripping it is safe and does not touch cell data.
+                if "extLst" not in str(e) and "unexpected keyword argument" not in str(e):
+                    raise
+                logger.warning(
+                    "Non-standard style metadata in xlsx; sanitizing and retrying",
+                    file=str(file_path), error=str(e),
+                )
+                sanitized = self._sanitize_xlsx_bytes(path.read_bytes())
+                path.write_bytes(sanitized)
+                df = pd.read_excel(file_path, engine="openpyxl", dtype=str)
         elif suffix == ".xls":
             df = pd.read_excel(file_path, engine="xlrd", dtype=str)
         elif suffix == ".csv":
@@ -249,6 +273,33 @@ class ExcelValidator:
         for col in df.columns:
             df[col] = df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
         return df
+
+    @staticmethod
+    def _sanitize_xlsx_bytes(raw: bytes) -> bytes:
+        """
+        Strip <extLst>...</extLst> blocks from xl/styles.xml.
+
+        These blocks carry proprietary, non-OOXML-standard style metadata
+        written by tools such as WPS Office (uri="smNativeData") that
+        openpyxl's style model does not know how to parse. Removing them
+        only discards decorative styling hints — cell values, formulas,
+        sheet structure, and standard formatting are untouched.
+        """
+        with zipfile.ZipFile(BytesIO(raw), "r") as zin:
+            names = zin.namelist()
+            entries = {n: zin.read(n) for n in names}
+
+        styles_path = "xl/styles.xml"
+        if styles_path in entries:
+            styles_xml = entries[styles_path].decode("utf-8", errors="ignore")
+            cleaned = re.sub(r"<extLst>.*?</extLst>", "", styles_xml, flags=re.DOTALL)
+            entries[styles_path] = cleaned.encode("utf-8")
+
+        out = BytesIO()
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+            for name in names:
+                zout.writestr(name, entries[name])
+        return out.getvalue()
 
     def _normalise_headers(self, df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         mapping: dict[str, str] = {}
