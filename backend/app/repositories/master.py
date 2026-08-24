@@ -182,7 +182,9 @@ class ResearchRepository(BaseRepository[ResearchPublication]):
                 or_(
                     ResearchPublication.title.ilike(p),
                     ResearchPublication.authors.ilike(p),
-                    ResearchPublication.journal_name.ilike(p),
+                    ResearchPublication.journal_conference_name.ilike(p),
+                    ResearchPublication.publisher.ilike(p),
+                    ResearchPublication.doi.ilike(p),
                 )
             )
         return await self.list(page=page, size=size, filters=filters)

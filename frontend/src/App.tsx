@@ -17,16 +17,11 @@ import ExcelAutoFillPage from "@/pages/excel-autofill/ExcelAutoFillPage";
 import WorkflowPage from "@/pages/workflow/WorkflowPage";
 import NotificationsPage from "@/pages/notifications/NotificationsPage";
 import AuditLogsPage from "@/pages/audit/AuditLogsPage";
+import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
 });
-const Placeholder = ({ title }: { title: string }) => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold">{title}</h1>
-    <p className="text-muted-foreground mt-1">Coming in a future module.</p>
-  </div>
-);
 
 export default function App() {
   return (
@@ -46,7 +41,7 @@ export default function App() {
             <Route path="/excel-autofill" element={<ExcelAutoFillPage />} />
             <Route path="/ai-search" element={<AISearchPage />} />
             <Route path="/rag-chatbot" element={<RAGChatbotPage />} />
-            <Route path="/search" element={<Placeholder title="Global Search" />} />
+            <Route path="/search" element={<GlobalSearchPage />} /> 
             <Route path="/workflow" element={<WorkflowPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/audit" element={<AuditLogsPage />} />

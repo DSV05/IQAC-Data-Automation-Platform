@@ -1,5 +1,5 @@
-from fastapi import APIRouter
-from app.api.v1.endpoints import ai_search, audit, auth, dashboard, excel_templates, health, master, notifications, rag, reports, uploads, validation, workflow
+from fastapi import APIRouter  # type: ignore[reportMissingImports]
+from app.api.v1.endpoints import ai_search, audit, auth, dashboard, excel_templates, health, master, notifications, rag, reports, uploads, validation, workflow, global_search
 
 api_router = APIRouter()
 api_router.include_router(health.router,          prefix="/health",          tags=["system"])
@@ -15,3 +15,4 @@ api_router.include_router(excel_templates.router,  prefix="/excel-templates", ta
 api_router.include_router(workflow.router,         prefix="/workflow",        tags=["workflow"])
 api_router.include_router(notifications.router,    prefix="/notifications",  tags=["notifications"])
 api_router.include_router(audit.router,            prefix="/audit",          tags=["audit"])
+api_router.include_router(global_search.router,    prefix="/global-search",   tags=["global-search"])
