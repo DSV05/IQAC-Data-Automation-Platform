@@ -349,7 +349,7 @@ async def global_search(
         hits = [
             _hit(
                 "funded_projects", str(r.id),
-                r.project_title,
+                r.title,
                 f"PI: {r.principal_investigator} · {r.funding_agency}",
                 r.academic_year,
                 str(r.department_id),

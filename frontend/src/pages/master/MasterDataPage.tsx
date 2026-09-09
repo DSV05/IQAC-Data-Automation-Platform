@@ -17,12 +17,13 @@ import {
   Users, GraduationCap, BookOpen, Lightbulb, Briefcase,
   Zap, Droplets, Trash2, Award, Handshake,
   CalendarDays, Leaf, ChevronRight, Pencil, X, RefreshCw,
-  Search, Download, Settings2, ChevronLeft, AlertCircle,
+  Search, Download, Settings2, AlertCircle,
   CheckCircle2,
 } from "lucide-react";
 import apiClient from "@/services/api";
 import { useAuthStore } from "@/store/auth.store";
 import { hasMinimumRole } from "@/utils/roles";
+import ExcelFilterTable from "@/components/master/ExcelFilterTable";
 
 // ── Academic years ─────────────────────────────────────────────────────────────
 const YEARS = ["2024-25", "2023-24", "2022-23", "2021-22", "2020-21"];
@@ -634,20 +635,25 @@ function MasterDataPageInner() {
 function EntityTable({ entity, year, search, canEdit }: {
   entity: string; year: string; search: string; canEdit: boolean;
 }) {
-  const [page, setPage] = useState(1);
   const [editingRow, setEditingRow] = useState<any | null>(null);
-  const PAGE_SIZE = 15;
   const qc = useQueryClient();
 
-  useEffect(() => { setPage(1); }, [search, year, entity]);
-
   const { data, isLoading, error } = useQuery({
-    queryKey: ["master", entity, year, page, search],
+    queryKey: ["master", entity, year, search],
     queryFn: async () => {
-      const res = await apiClient.get(`/master/${entity}`, {
-        params: { academic_year: year, page, size: PAGE_SIZE, ...(search.trim() ? { search: search.trim() } : {}) },
-      });
-      return res.data;
+      const params = { academic_year: year, size: 1000, ...(search.trim() ? { search: search.trim() } : {}) };
+      const first = await apiClient.get(`/master/${entity}`, { params: { ...params, page: 1 } });
+      const totalPages = first.data.pages ?? 1;
+      if (totalPages <= 1) return first.data;
+
+      // Value lists and AND filters must use every matching server page, not
+      // just the rows that happen to be visible in the old page view.
+      const remaining = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, index) => apiClient.get(`/master/${entity}`, {
+          params: { ...params, page: index + 2 },
+        })),
+      );
+      return { ...first.data, items: [first.data.items ?? [], ...remaining.flatMap((response) => response.data.items ?? [])] };
     },
   });
 
@@ -689,11 +695,21 @@ function EntityTable({ entity, year, search, canEdit }: {
       department_name: item.department_id ? departmentNames.get(item.department_id) ?? "Unknown department" : "—",
     } : {}),
   }));
-  const total  = data?.total ?? 0;
-  const pages  = data?.pages ?? 1;
-
   return (
     <div className="space-y-3">
+      <ExcelFilterTable
+        columns={columns}
+        rows={items}
+        resetKey={`${entity}:${year}:${search}`}
+        emptyMessage={search ? `No records match "${search}" for ${year}.` : `No records for ${year}. Upload via Data Upload module.`}
+        renderActions={canEdit && editFields ? (row) => (
+          <button onClick={() => setEditingRow(row)} className="inline-flex items-center gap-1 text-xs font-medium text-[#003087] hover:underline">
+            <Pencil className="w-3.5 h-3.5" /> Edit
+          </button>
+        ) : undefined}
+      />
+      {/* Legacy table markup is retained below only as a reference while the
+          reusable ExcelFilterTable owns rendering, filtering and pagination.
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">
           {search
@@ -767,6 +783,7 @@ function EntityTable({ entity, year, search, canEdit }: {
           </button>
         </div>
       )}
+      */}
 
       {editingRow && editFields && (
         <RecordEditModal
