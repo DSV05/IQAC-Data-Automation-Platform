@@ -21,8 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.master import (
     AwardRepository, EnergyRepository, EventRepository, FacultyRepository,
-    MoURepository, PatentRepository, PlacementRepository, ResearchRepository,
+    MoURepository, PatentRepository, PlacementRepository, ProjectRepository, ResearchRepository,
     SDGRepository, StudentRepository, WasteRepository, WaterRepository,
+    ConsultancyRepository,
 )
 
 # entity_type -> RepositoryClass. Matching on upload is always by Record ID
@@ -33,6 +34,8 @@ _REPO_MAP: dict[str, type] = {
     "research": ResearchRepository,
     "patents": PatentRepository,
     "placements": PlacementRepository,
+    "funded_projects": ProjectRepository,
+    "consultancy": ConsultancyRepository,
     "mous": MoURepository,
     "events": EventRepository,
     "energy": EnergyRepository,
@@ -52,6 +55,8 @@ _INSERT_REQUIRES: dict[str, list[str]] = {
     "research": ["department_id"],
     "patents": ["department_id"],
     "placements": ["department_id"],
+    "funded_projects": ["department_id"],
+    "consultancy": ["department_id"],
     # mous, events, energy, water, waste, awards, sdg_activities: no
     # required FK — safe to insert with whatever the row provides.
 }

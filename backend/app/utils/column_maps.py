@@ -30,6 +30,7 @@ FACULTY_COLUMNS: list[ColumnSpec] = [
     ColumnSpec("department",         "str",   False, ["department", "department name", "department code"]),
     ColumnSpec("employee_id",        "str",   True,  ["emp id", "employee id", "emp_id", "staff id", "faculty id"]),
     ColumnSpec("full_name",          "str",   True,  ["name", "faculty name", "teacher name"]),
+    ColumnSpec("institute",          "str",   False, ["institute name", "school", "campus"]),
     ColumnSpec("gender",             "str",   True,  ["sex", "gender"]),
     ColumnSpec("designation",        "str",   True,  ["post", "designation", "position", "role"]),
     ColumnSpec("qualification",      "str",   True,  ["highest qualification", "qual", "degree"]),
@@ -38,6 +39,7 @@ FACULTY_COLUMNS: list[ColumnSpec] = [
     ColumnSpec("email",              "email", False, ["email id", "email address", "mail"]),
     ColumnSpec("phone",              "str",   False, ["phone", "mobile", "contact", "phone no"]),
     ColumnSpec("date_of_joining",    "date",  False, ["doj", "joining date", "date of joining"]),
+    ColumnSpec("date_of_leaving",    "date",  False, ["dol", "leaving date", "date of leaving"]),
     ColumnSpec("date_of_birth",      "date",  False, ["dob", "birth date", "date of birth"]),
     ColumnSpec("specialization",     "str",   False, ["specialization", "specialisation", "subject"]),
     ColumnSpec("phd_awarded",        "bool",  False, ["phd", "ph.d", "phd awarded", "has phd"]),
@@ -115,6 +117,33 @@ PLACEMENT_COLUMNS: list[ColumnSpec] = [
     ColumnSpec("company_city",    "str",   False, ["city", "location", "company city"]),
     ColumnSpec("company_state",   "str",   False, ["state", "company state"]),
     ColumnSpec("category",        "str",   False, ["category", "caste"]),
+]
+
+# ── NIRF sponsored research / consultancy ────────────────────────────────────
+
+FUNDED_PROJECT_COLUMNS: list[ColumnSpec] = [
+    ColumnSpec("department", "str", False, ["department", "department name", "department code"]),
+    ColumnSpec("title", "str", True, ["project title", "title"]),
+    ColumnSpec("principal_investigator", "str", True, ["pi", "principal investigator"]),
+    ColumnSpec("funding_agency", "str", True, ["agency", "funding agency"]),
+    ColumnSpec("funding_agency_name", "str", False, ["agency name", "funding agency name"]),
+    ColumnSpec("scheme", "str", False, ["scheme"]),
+    ColumnSpec("amount_sanctioned", "float", False, ["sanctioned amount"]),
+    ColumnSpec("amount_received", "float", False, ["amount received", "received amount"]),
+    ColumnSpec("start_date", "date", False, ["start date"]),
+    ColumnSpec("end_date", "date", False, ["end date"]),
+    ColumnSpec("is_ongoing", "bool", False, ["ongoing", "is ongoing"]),
+]
+
+CONSULTANCY_COLUMNS: list[ColumnSpec] = [
+    ColumnSpec("department", "str", False, ["department", "department name", "department code"]),
+    ColumnSpec("title", "str", True, ["consultancy title", "title"]),
+    ColumnSpec("client_name", "str", True, ["client", "client organization", "client name"]),
+    ColumnSpec("faculty_names", "str", True, ["faculty", "faculty names", "consultant names"]),
+    ColumnSpec("amount_inr", "float", False, ["amount received", "amount", "amount inr"]),
+    ColumnSpec("start_date", "date", False, ["start date"]),
+    ColumnSpec("end_date", "date", False, ["end date"]),
+    ColumnSpec("is_ongoing", "bool", False, ["ongoing", "is ongoing"]),
 ]
 
 # ── Energy ────────────────────────────────────────────────────────────────────
@@ -212,6 +241,8 @@ ENTITY_COLUMNS: dict[str, list[ColumnSpec]] = {
     "research":       RESEARCH_COLUMNS,
     "patents":        PATENT_COLUMNS,
     "placements":     PLACEMENT_COLUMNS,
+    "funded_projects": FUNDED_PROJECT_COLUMNS,
+    "consultancy":    CONSULTANCY_COLUMNS,
     "energy":         ENERGY_COLUMNS,
     "mous":           MOU_COLUMNS,
     "events":         EVENT_COLUMNS,

@@ -202,7 +202,6 @@ def generate_aishe_pdf(data: dict) -> bytes:
 
 
 GENERATORS = {
-    "nirf": generate_nirf_pdf,
     "naac_ssr": generate_naac_pdf,
     "aishe": generate_aishe_pdf,
 }

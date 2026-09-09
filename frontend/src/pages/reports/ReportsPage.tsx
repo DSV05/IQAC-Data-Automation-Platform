@@ -37,8 +37,7 @@ export default function ReportsPage() {
           Report Generator
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Generate NIRF, NAAC SSR, and AISHE data summaries directly from your master data —
-          as an Excel workbook or a formatted PDF.
+          Generate the official NIRF Excel workbook and NAAC SSR/AISHE reports directly from master data.
         </p>
       </div>
 
@@ -70,7 +69,7 @@ export default function ReportsPage() {
                 )}
                 Excel
               </button>
-              <button
+              {t.value !== "nirf" && <button
                 onClick={() => handleGenerate(t.value, "pdf")}
                 disabled={generating === `${t.value}-pdf`}
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[#C9A227] hover:bg-[#B08F1E] text-white text-xs font-medium px-3 py-2 transition disabled:opacity-50"
@@ -81,7 +80,7 @@ export default function ReportsPage() {
                   <FileText className="w-3.5 h-3.5" />
                 )}
                 PDF
-              </button>
+              </button>}
             </div>
           </div>
         ))}
@@ -121,7 +120,7 @@ export default function ReportsPage() {
 }
 
 const REPORT_LABELS: Record<string, string> = {
-  nirf: "NIRF Data Summary",
+  nirf: "NIRF Data",
   naac_ssr: "NAAC SSR Data Summary",
   aishe: "AISHE Institutional Data",
 };

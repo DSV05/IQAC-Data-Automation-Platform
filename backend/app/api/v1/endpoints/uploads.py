@@ -291,7 +291,7 @@ async def download_template(
                 ws.write(r, col_idx, to_cell_value(value), data_cell_fmt)
         note_row = len(existing_rows) + 2
         relationship_note = ""
-        if entity_type in {"faculty", "students", "research", "patents", "placements"}:
+        if entity_type in {"faculty", "students", "research", "patents", "placements", "funded_projects", "consultancy"}:
             relationship_note = " New rows must include a valid Department name or code."
         if entity_type == "students":
             relationship_note += " New student rows must also include a valid Program name or code."
@@ -306,7 +306,7 @@ async def download_template(
         ws.write(1, 0, "* Required fields (highlighted in yellow)", note_fmt)
         ws.write(2, 0, "Leave Record ID blank for new rows — it's filled in automatically "
                        "when you download this file again after uploading.", note_fmt)
-        if entity_type in {"faculty", "students", "research", "patents", "placements"}:
+        if entity_type in {"faculty", "students", "research", "patents", "placements", "funded_projects", "consultancy"}:
             relation_note = "New rows require a valid Department name or code."
             if entity_type == "students":
                 relation_note += " New student rows also require a valid Program name or code."

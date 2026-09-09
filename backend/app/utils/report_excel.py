@@ -223,7 +223,6 @@ def generate_aishe_excel(data: dict) -> bytes:
 
 
 GENERATORS = {
-    "nirf": generate_nirf_excel,
     "naac_ssr": generate_naac_excel,
     "aishe": generate_aishe_excel,
 }

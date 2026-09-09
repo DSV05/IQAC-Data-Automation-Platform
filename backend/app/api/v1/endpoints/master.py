@@ -803,6 +803,20 @@ async def create_funded_project(
     return s.FundedProjectRead.model_validate(item)
 
 
+@router.put("/funded_projects/{record_id}", response_model=s.FundedProjectRead)
+async def update_funded_project(
+    record_id: uuid.UUID, data: s.FundedProjectUpdate,
+    current_user: User = Depends(require_permission("research:update")),
+    db: AsyncSession = Depends(get_db),
+):
+    from fastapi import HTTPException
+    repo = ProjectRepository(db, actor=current_user)
+    item = await repo.get_by_id(record_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Sponsored project not found")
+    return s.FundedProjectRead.model_validate(await repo.update(item, **data.model_dump(exclude_unset=True)))
+
+
 # ── Higher Studies ────────────────────────────────────────────────────────────
 
 @router.get("/higher_studies")
@@ -859,3 +873,17 @@ async def create_consultancy(
 ):
     item = await ConsultancyRepository(db, actor=current_user).create(**data.model_dump())
     return s.ConsultancyRead.model_validate(item)
+
+
+@router.put("/consultancy/{record_id}", response_model=s.ConsultancyRead)
+async def update_consultancy(
+    record_id: uuid.UUID, data: s.ConsultancyUpdate,
+    current_user: User = Depends(require_permission("faculty:update")),
+    db: AsyncSession = Depends(get_db),
+):
+    from fastapi import HTTPException
+    repo = ConsultancyRepository(db, actor=current_user)
+    item = await repo.get_by_id(record_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Consultancy project not found")
+    return s.ConsultancyRead.model_validate(await repo.update(item, **data.model_dump(exclude_unset=True)))

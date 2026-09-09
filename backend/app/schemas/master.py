@@ -32,6 +32,7 @@ class FacultyBase(BaseModel):
     academic_year: str = Field(..., pattern=r"^\d{4}-\d{2}$")
     department_id: uuid.UUID
     full_name: str = Field(..., max_length=255)
+    institute: Optional[str] = Field(None, max_length=255)
     gender: Gender
     date_of_birth: Optional[date] = None
     email: Optional[str] = None
@@ -44,6 +45,7 @@ class FacultyBase(BaseModel):
     phd_university: Optional[str] = None
     employment_type: EmploymentType
     date_of_joining: Optional[date] = None
+    date_of_leaving: Optional[date] = None
     experience_teaching: float = 0.0
     experience_industry: float = 0.0
     experience_research: float = 0.0
@@ -60,6 +62,7 @@ class FacultyCreate(FacultyBase):
 class FacultyUpdate(BaseModel):
     department_id: Optional[uuid.UUID] = None
     full_name: Optional[str] = None
+    institute: Optional[str] = Field(None, max_length=255)
     gender: Optional[Gender] = None
     date_of_birth: Optional[date] = None
     email: Optional[str] = None
@@ -72,6 +75,7 @@ class FacultyUpdate(BaseModel):
     phd_university: Optional[str] = None
     employment_type: Optional[EmploymentType] = None
     date_of_joining: Optional[date] = None
+    date_of_leaving: Optional[date] = None
     experience_teaching: Optional[float] = None
     experience_industry: Optional[float] = None
     experience_research: Optional[float] = None

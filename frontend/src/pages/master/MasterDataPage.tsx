@@ -35,6 +35,8 @@ const TABS = [
   { key: "research",   label: "Research",   icon: BookOpen,     color: "text-purple-600 bg-purple-50",   templateKey: "research" },
   { key: "patents",    label: "Patents",    icon: Lightbulb,    color: "text-amber-600 bg-amber-50",     templateKey: "patents" },
   { key: "placements", label: "Placements", icon: Briefcase,    color: "text-teal-600 bg-teal-50",       templateKey: "placements" },
+  { key: "funded_projects", label: "Sponsored Research", icon: BookOpen, color: "text-violet-600 bg-violet-50", templateKey: "funded_projects" },
+  { key: "consultancy", label: "Consultancy Projects", icon: Handshake, color: "text-sky-600 bg-sky-50", templateKey: "consultancy" },
   { key: "mous",       label: "MoUs",       icon: Handshake,    color: "text-indigo-600 bg-indigo-50",   templateKey: "mous" },
   { key: "events",     label: "Events",     icon: CalendarDays, color: "text-pink-600 bg-pink-50",       templateKey: "events" },
   { key: "energy",     label: "Energy",     icon: Zap,          color: "text-yellow-600 bg-yellow-50",   templateKey: "energy" },
@@ -51,6 +53,8 @@ const SEARCH_HINTS: Record<string, string> = {
   research:   "Search by title, authors, indexing…",
   patents:    "Search by title, application number…",
   placements: "Search by student name, company…",
+  funded_projects: "Search by project title or investigator…",
+  consultancy: "Search by title or client organization…",
   mous:       "Search by partner name, country…",
   events:     "Search by title, event type…",
   energy:     "Search by month…",
@@ -64,7 +68,7 @@ const SEARCH_HINTS: Record<string, string> = {
 // of their UI, editing, or display flow even though legacy database rows may
 // still contain an optional department_id.
 const DEPARTMENT_MANAGED_ENTITIES = new Set([
-  "faculty", "students", "research", "patents", "placements",
+  "faculty", "students", "research", "patents", "placements", "funded_projects", "consultancy",
 ]);
 
 // ── localStorage helpers for custom template labels ────────────────────────────
@@ -88,6 +92,7 @@ const COLUMNS: Record<string, { key: string; label: string; required?: boolean; 
   faculty: [
     { key: "employee_id",          label: "Employee ID",       required: true  },
     { key: "full_name",            label: "Full Name",         required: true  },
+    { key: "institute",            label: "Institute" },
     { key: "department_name",      label: "Department",        templated: false },
     { key: "gender",               label: "Gender",            required: true,  render: (v) => <span className="capitalize">{v}</span> },
     { key: "designation",          label: "Designation",       required: true,  render: (v) => <Badge value={v} /> },
@@ -97,6 +102,7 @@ const COLUMNS: Record<string, { key: string; label: string; required?: boolean; 
     { key: "email",                label: "Email" },
     { key: "phone",                label: "Phone",                              render: (v) => v ?? "—" },
     { key: "date_of_joining",      label: "Date of Joining",                    render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
+    { key: "date_of_leaving",      label: "Date of Leaving",                    render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
     { key: "date_of_birth",        label: "Date of Birth",                      render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
     { key: "specialization",       label: "Specialization" },
     { key: "phd_awarded",          label: "PhD",                                render: (v) => v ? <span className="text-green-600 font-medium">Yes</span> : <span className="text-muted-foreground">No</span> },
@@ -164,6 +170,29 @@ const COLUMNS: Record<string, { key: string; label: string; required?: boolean; 
     { key: "company_state",   label: "Company State",                   render: (v) => v ?? "—" },
     { key: "category",        label: "Category",                        render: (v) => v ?? "—" },
     { key: "is_verified",     label: "Verified",        templated: false,render: (v) => v ? <span className="text-green-600">✓</span> : "—" },
+  ],
+  funded_projects: [
+    { key: "title", label: "Project Title", required: true },
+    { key: "department_name", label: "Department", templated: false },
+    { key: "principal_investigator", label: "Principal Investigator", required: true },
+    { key: "funding_agency", label: "Funding Agency", required: true, render: (v) => <Badge value={v} /> },
+    { key: "funding_agency_name", label: "Agency Name", render: (v) => v ?? "—" },
+    { key: "scheme", label: "Scheme", render: (v) => v ?? "—" },
+    { key: "amount_sanctioned", label: "Sanctioned (₹)", render: (v) => v?.toLocaleString() ?? "—" },
+    { key: "amount_received", label: "Received (₹)", render: (v) => v?.toLocaleString() ?? "—" },
+    { key: "start_date", label: "Start Date", render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
+    { key: "end_date", label: "End Date", render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
+    { key: "is_ongoing", label: "Ongoing", render: (v) => v ? "Yes" : "No" },
+  ],
+  consultancy: [
+    { key: "title", label: "Consultancy Title", required: true },
+    { key: "department_name", label: "Department", templated: false },
+    { key: "client_name", label: "Client Organization", required: true },
+    { key: "faculty_names", label: "Faculty / Consultants", required: true },
+    { key: "amount_inr", label: "Amount Received (₹)", render: (v) => v?.toLocaleString() ?? "—" },
+    { key: "start_date", label: "Start Date", render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
+    { key: "end_date", label: "End Date", render: (v) => v ? new Date(v).toLocaleDateString("en-IN") : "—" },
+    { key: "is_ongoing", label: "Ongoing", render: (v) => v ? "Yes" : "No" },
   ],
   mous: [
     { key: "partner_name",    label: "Partner Name",    required: true },
@@ -242,6 +271,7 @@ interface EditFieldDef { key: string; label: string; type: EditFieldType; step?:
 const EDITABLE_ENTITY_FIELDS: Record<string, EditFieldDef[]> = {
   faculty: [
     { key: "full_name",           label: "Full Name",             type: "text" },
+    { key: "institute",           label: "Institute",             type: "text" },
     { key: "department_id",       label: "Department",            type: "department" },
     { key: "gender",               label: "Gender",                type: "select", options: ["male","female","other"] },
     { key: "date_of_birth",        label: "Date of Birth",         type: "date" },
@@ -255,6 +285,7 @@ const EDITABLE_ENTITY_FIELDS: Record<string, EditFieldDef[]> = {
     { key: "phd_university",       label: "PhD University",        type: "text" },
     { key: "employment_type",     label: "Employment Type",       type: "select", options: ["permanent","contract","visiting","adjunct"] },
     { key: "date_of_joining",      label: "Date of Joining",       type: "date" },
+    { key: "date_of_leaving",      label: "Date of Leaving",       type: "date" },
     { key: "experience_teaching", label: "Teaching Exp (Yrs)",    type: "number", step: "0.1" },
     { key: "experience_industry", label: "Industry Exp (Yrs)",    type: "number", step: "0.1" },
     { key: "experience_research", label: "Research Exp (Yrs)",    type: "number", step: "0.1" },
@@ -326,6 +357,18 @@ const EDITABLE_ENTITY_FIELDS: Record<string, EditFieldDef[]> = {
     { key: "is_international",label: "International",   type: "checkbox" },
     { key: "is_verified",    label: "Verified",         type: "checkbox" },
     { key: "remarks",        label: "Remarks",            type: "textarea" },
+  ],
+  funded_projects: [
+    { key: "amount_received", label: "Amount Received (₹)", type: "number" },
+    { key: "end_date", label: "End Date", type: "date" },
+    { key: "is_ongoing", label: "Ongoing", type: "checkbox" },
+    { key: "remarks", label: "Remarks", type: "textarea" },
+  ],
+  consultancy: [
+    { key: "amount_inr", label: "Amount Received (₹)", type: "number" },
+    { key: "end_date", label: "End Date", type: "date" },
+    { key: "is_ongoing", label: "Ongoing", type: "checkbox" },
+    { key: "remarks", label: "Remarks", type: "textarea" },
   ],
   mous: [
     { key: "partner_name",    label: "Partner Name",      type: "text" },

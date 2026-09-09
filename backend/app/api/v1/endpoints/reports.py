@@ -45,6 +45,8 @@ async def generate_report(
 ):
     if report_format not in MEDIA_TYPES:
         raise HTTPException(status_code=400, detail="report_format must be 'xlsx' or 'pdf'.")
+    if report_type == "nirf" and report_format != "xlsx":
+        raise HTTPException(status_code=400, detail="NIRF Data is available only as the official Excel workbook.")
 
     service = ReportService(db)
     try:
@@ -54,11 +56,12 @@ async def generate_report(
             report_format=report_format,
             academic_year=academic_year,
         )
-    except UnknownReportTypeError as exc:
+    except (UnknownReportTypeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     year_slug = (academic_year or "all-years").replace("/", "-")
-    filename = f"{report_type}_{year_slug}_{datetime.now().strftime('%Y%m%d')}.{report_format}"
+    filename = (f"GUNI_NIRF_2026_{year_slug}.xlsx" if report_type == "nirf"
+                else f"{report_type}_{year_slug}_{datetime.now().strftime('%Y%m%d')}.{report_format}")
 
     return StreamingResponse(
         io.BytesIO(file_bytes),

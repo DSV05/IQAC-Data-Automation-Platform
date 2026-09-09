@@ -199,7 +199,10 @@ class UploadService:
         contain multiple departments and gives the operator actionable errors
         instead of silently skipping rows that would violate a foreign key.
         """
-        department_entities = {"faculty", "students", "research", "patents", "placements"}
+        department_entities = {
+            "faculty", "students", "research", "patents", "placements",
+            "funded_projects", "consultancy",
+        }
         if entity_type not in department_entities:
             return
 

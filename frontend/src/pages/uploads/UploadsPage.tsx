@@ -17,14 +17,14 @@ const ENTITY_TYPES = [
   { value: "patents",        label: "Patents",           template: true },
   { value: "placements",     label: "Placements",        template: true },
   { value: "higher_studies", label: "Higher Studies",    template: false },
-  { value: "funded_projects",label: "Funded Projects",   template: false },
+  { value: "funded_projects",label: "Sponsored Research Projects", template: true },
   { value: "mous",           label: "MoUs",              template: true },
   { value: "events",         label: "Events",            template: true },
   { value: "energy",         label: "Energy Consumption",template: true },
   { value: "water",          label: "Water Consumption", template: true },
   { value: "waste",          label: "Waste Management",  template: true },
   { value: "awards",         label: "Awards",            template: true },
-  { value: "consultancy",    label: "Consultancy",       template: false },
+  { value: "consultancy",    label: "Consultancy Projects", template: true },
   { value: "sdg_activities", label: "SDG Activities",    template: true },
 ];
 

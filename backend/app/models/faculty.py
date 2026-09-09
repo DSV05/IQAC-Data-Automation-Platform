@@ -57,6 +57,8 @@ class Faculty(BaseModel):
     experience_research: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
     # NIRF specific
+    # Nullable preserves existing records during the NIRF 2026 migration.
+    institute: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_sanctioned_post: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     pan_number: Mapped[str | None] = mapped_column(String(10), nullable=True)
 

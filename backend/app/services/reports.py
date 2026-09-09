@@ -7,6 +7,7 @@ from app.models.reports import ReportFormat, ReportGenerationLog, ReportType
 from app.utils import report_data
 from app.utils.report_excel import GENERATORS as EXCEL_GENERATORS
 from app.utils.report_pdf import GENERATORS as PDF_GENERATORS
+from app.utils.nirf_template import generate_nirf_2026_excel
 
 DATA_FETCHERS = {
     "nirf": report_data.get_nirf_data,
@@ -17,8 +18,8 @@ DATA_FETCHERS = {
 REPORT_TYPE_INFO = [
     {
         "value": "nirf",
-        "label": "NIRF Data Summary",
-        "description": "Faculty ratios, research output, patents, funded projects, and placement metrics.",
+        "label": "NIRF Data",
+        "description": "Official NIRF Excel workbook, populated from year-wise master data.",
     },
     {
         "value": "naac_ssr",
@@ -47,12 +48,18 @@ class ReportService:
         if report_type not in DATA_FETCHERS:
             raise UnknownReportTypeError(f"Unknown report type: {report_type}")
 
-        data = await DATA_FETCHERS[report_type](self.db, academic_year)
-
-        if report_format == "pdf":
-            file_bytes = PDF_GENERATORS[report_type](data)
+        if report_type == "nirf" and report_format != "xlsx":
+            raise ValueError("NIRF Data is available only as the official Excel workbook.")
+        if report_type == "nirf":
+            if not academic_year:
+                raise ValueError("An academic year is required for the NIRF workbook.")
+            file_bytes = await generate_nirf_2026_excel(self.db, academic_year)
         else:
-            file_bytes = EXCEL_GENERATORS[report_type](data)
+            data = await DATA_FETCHERS[report_type](self.db, academic_year)
+            if report_format == "pdf":
+                file_bytes = PDF_GENERATORS[report_type](data)
+            else:
+                file_bytes = EXCEL_GENERATORS[report_type](data)
 
         log = ReportGenerationLog(
             user_id=user_id,
