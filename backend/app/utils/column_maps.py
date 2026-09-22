@@ -52,9 +52,10 @@ FACULTY_COLUMNS: list[ColumnSpec] = [
 # ── Students ──────────────────────────────────────────────────────────────────
 
 STUDENT_COLUMNS: list[ColumnSpec] = [
-    # Virtual import fields: resolved to department_id/program_id by UploadService.
+    # Virtual import field: resolved to department_id by UploadService.
     ColumnSpec("department",      "str",  False, ["department", "department name", "department code"]),
-    ColumnSpec("program",         "str",  False, ["program", "program name", "program code"]),
+    ColumnSpec("level",           "str",  True,  ["level", "program level", "degree level"]),
+    ColumnSpec("duration_years",  "int",  True,  ["duration", "duration years", "duration (years)", "duration (yrs)", "duration(yrs)", "duration yrs", "duration_yrs", "course duration", "program duration", "no of years", "years"]),
     ColumnSpec("enrollment_no",   "str",  True,  ["enrollment", "enroll no", "roll no", "student id", "gr no"]),
     ColumnSpec("full_name",       "str",  True,  ["name", "student name"]),
     ColumnSpec("gender",          "str",  True,  ["sex", "gender"]),
@@ -70,6 +71,8 @@ STUDENT_COLUMNS: list[ColumnSpec] = [
     ColumnSpec("state_of_domicile","str", False, ["state", "home state"]),
     ColumnSpec("is_pwd",          "bool", False, ["pwd", "handicapped", "differently abled"]),
     ColumnSpec("backlogs",        "int",  False, ["backlog", "backlogs", "no of backlogs", "arrears"]),
+    ColumnSpec("is_full_time",    "bool", False, ["full time", "full-time", "full time / part time", "mode of study", "phd mode"]),
+    ColumnSpec("graduation_year", "int",  False, ["graduation year", "year of graduation", "passed out year", "phd graduation year"]),
 ]
 
 # ── Research Publications ─────────────────────────────────────────────────────

@@ -3,6 +3,8 @@ import { FileBarChart, FileSpreadsheet, FileText, Download, RefreshCw, History }
 import { reportsService } from "@/services/reports.service";
 import type { ReportFormat, ReportHistoryItem, ReportType, ReportTypeInfo } from "@/types";
 
+const ACADEMIC_YEARS = ["All years", "2024-25", "2023-24", "2022-23", "2021-22", "2020-21"];
+
 export default function ReportsPage() {
   const [types, setTypes] = useState<ReportTypeInfo[]>([]);
   const [history, setHistory] = useState<ReportHistoryItem[]>([]);
@@ -20,7 +22,7 @@ export default function ReportsPage() {
     const key = `${type}-${format}`;
     setGenerating(key);
     try {
-      await reportsService.generateAndDownload(type, format, academicYear.trim() || undefined);
+      await reportsService.generateAndDownload(type, format, academicYear === "All years" ? undefined : academicYear);
       loadHistory();
     } catch (e: any) {
       alert(e?.response?.data?.detail || "Report generation failed. Please try again.");
@@ -43,12 +45,15 @@ export default function ReportsPage() {
 
       <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
         <label className="text-sm font-medium text-foreground">Academic Year</label>
-        <input
+        <select
           value={academicYear}
           onChange={(e) => setAcademicYear(e.target.value)}
-          placeholder="2023-24 (leave blank for all years)"
-          className="w-56 rounded-lg border border-input bg-background text-sm px-3 py-2"
-        />
+          className="w-56 rounded-lg border border-input bg-background text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003087]"
+        >
+          {ACADEMIC_YEARS.map((y) => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

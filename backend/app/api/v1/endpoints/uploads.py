@@ -197,11 +197,23 @@ async def download_template(
     from app.utils.column_maps import get_column_specs
     from app.utils.db_inserter import _REPO_MAP
     from app.models.user import Department
-    from app.models.student import Program
+    from app.models.custom_column import CustomColumnDef
 
     specs = get_column_specs(entity_type)
     if not specs:
         raise HTTPException(status_code=404, detail=f"No template for entity: {entity_type}")
+
+    # Admin-added extra columns (Master Data → Edit Template → "+ Add Column")
+    # are appended after the entity's normal fields. They have no matching
+    # DB attribute, so they're always written blank — new columns exist so
+    # operators can start filling data that isn't tracked yet.
+    custom_columns = (
+        (await db.execute(
+            select(CustomColumnDef)
+            .where(CustomColumnDef.entity_type == entity_type)
+            .order_by(CustomColumnDef.created_at)
+        )).scalars().all()
+    )
 
     label_overrides = {
         key[len("label_"):]: value
@@ -231,19 +243,12 @@ async def download_template(
             )
 
     department_labels: dict[uuid.UUID, str] = {}
-    program_labels: dict[uuid.UUID, str] = {}
     if existing_rows:
         department_ids = {item.department_id for item in existing_rows if getattr(item, "department_id", None)}
-        program_ids = {item.program_id for item in existing_rows if getattr(item, "program_id", None)}
         if department_ids:
             department_labels = {
                 department.id: department.code
                 for department in (await db.execute(select(Department).where(Department.id.in_(department_ids)))).scalars()
-            }
-        if program_ids:
-            program_labels = {
-                program.id: program.code
-                for program in (await db.execute(select(Program).where(Program.id.in_(program_ids)))).scalars()
             }
 
     output = io.BytesIO()
@@ -278,23 +283,32 @@ async def download_template(
         ws.write(0, col_idx, label, fmt)
         ws.set_column(col_idx, col_idx, 20)
 
+    custom_col_start = len(specs) + 1
+    for offset, custom_col in enumerate(custom_columns):
+        col_idx = custom_col_start + offset
+        label = label_overrides.get(custom_col.field_key, custom_col.label)
+        ws.write(0, col_idx, label, header_fmt)
+        ws.set_column(col_idx, col_idx, 20)
+
     if existing_rows:
         for r, item in enumerate(existing_rows, start=1):
             ws.write(r, 0, str(item.id), id_cell_fmt)
             for col_idx, spec in enumerate(specs, start=1):
                 if spec.db_field == "department":
                     value = department_labels.get(getattr(item, "department_id", None), "")
-                elif spec.db_field == "program":
-                    value = program_labels.get(getattr(item, "program_id", None), "")
                 else:
                     value = getattr(item, spec.db_field, None)
                 ws.write(r, col_idx, to_cell_value(value), data_cell_fmt)
+            # Custom columns read from each record's custom_fields JSONB —
+            # filled in only after a prior upload has written a value back;
+            # blank until then.
+            record_custom = getattr(item, "custom_fields", None) or {}
+            for offset, custom_col in enumerate(custom_columns):
+                ws.write(r, custom_col_start + offset, to_cell_value(record_custom.get(custom_col.field_key)), data_cell_fmt)
         note_row = len(existing_rows) + 2
         relationship_note = ""
         if entity_type in {"faculty", "students", "research", "patents", "placements", "funded_projects", "consultancy"}:
             relationship_note = " New rows must include a valid Department name or code."
-        if entity_type == "students":
-            relationship_note += " New student rows must also include a valid Program name or code."
         ws.write(note_row, 0,
                  f"↑ {len(existing_rows)} existing record(s) for {academic_year}. "
                  f"Edit any cell above to update that record. Add new rows below "
@@ -308,12 +322,11 @@ async def download_template(
                        "when you download this file again after uploading.", note_fmt)
         if entity_type in {"faculty", "students", "research", "patents", "placements", "funded_projects", "consultancy"}:
             relation_note = "New rows require a valid Department name or code."
-            if entity_type == "students":
-                relation_note += " New student rows also require a valid Program name or code."
             ws.write(3, 0, relation_note, note_fmt)
         hints = {
             "department": "CSE / Computer Science and Engineering",
-            "program": "BTECH-CSE / B.Tech Computer Engineering",
+            "level": "ug / pg / diploma",
+            "duration_years": "4",
             "employee_id": "EMP001", "full_name": "Dr. Rajesh Kumar",
             "gender": "male / female / other",
             "designation": "professor / assistant_professor",

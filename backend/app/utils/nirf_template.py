@@ -6,6 +6,7 @@ not recreate sheets, styles, merges, validations, or formulas.
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from copy import copy
 from datetime import date
 from io import BytesIO
@@ -16,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.awards import Accreditation, Consultancy
+from app.models.enums import ProgramLevel
 from app.models.faculty import Faculty
 from app.models.institutional import Budget, Event
 from app.models.placement import HigherStudy, Placement
@@ -61,6 +63,16 @@ def _age(dob: date | None) -> int | None:
         return None
     today = date.today()
     return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+
+def _prior_academic_years(anchor: str, count: int) -> list[str]:
+    """["2024-25", "2023-24", ...] going backwards `count` years from anchor.
+
+    The Sanctioned Intake grid (and similarly-shaped grids) asks NIRF for a
+    5-year trend, one column per year, not just the year being reported.
+    """
+    start = int(anchor.split("-")[0])
+    return [f"{start - offset}-{str(start - offset + 1)[-2:]}" for offset in range(count)]
 
 
 def _copy_row_style(ws, source_row: int, target_row: int, columns: int) -> None:
@@ -118,15 +130,23 @@ async def generate_nirf_2026_excel(db: AsyncSession, academic_year: str) -> byte
     category_rows = {("ug", 6): 14, ("ug", 5): 15, ("ug", 4): 16, ("ug", 3): 17,
                      ("pg", 3): 18, ("pg", 2): 19, ("pg", 1): 20, ("diploma", 3): 22}
     student_category_rows = {key: row + 13 for key, row in category_rows.items()}
-    program_by_id = {program.id: program for program in programs}
-    for program in programs:
-        row = category_rows.get((_enum(program.level), program.duration_years), 23)
-        main.cell(row, 2).value = (main.cell(row, 2).value or 0) + (program.intake_sanctioned or 0)
+
+    # Sanctioned intake is a 5-year trend, one column per year (B=this year
+    # through G=5 years back) — not just the year being reported. Pull each
+    # of those years' Programs separately and place them in their own column.
+    intake_years = _prior_academic_years(academic_year, 6)
+    for col, year in enumerate(intake_years, start=2):
+        year_programs = programs if year == academic_year else (
+            await db.execute(select(Program).where(Program.academic_year == year, Program.is_active == True))  # noqa: E712
+        ).scalars().all()
+        for program in year_programs:
+            row = category_rows.get((_enum(program.level), program.duration_years), 23)
+            main.cell(row, col).value = (main.cell(row, col).value or 0) + (program.intake_sanctioned or 0)
+
+    # Current student strength, though, comes straight from each student's
+    # own Level + Duration — students no longer link to a Program record.
     for student in students:
-        program = program_by_id.get(student.program_id)
-        if not program:
-            continue
-        row = student_category_rows.get((_enum(program.level), program.duration_years), 36)
+        row = student_category_rows.get((_enum(student.level), student.duration_years), 36)
         female = _enum(student.gender) == "female"
         main.cell(row, 2 if not female else 3).value = (main.cell(row, 2 if not female else 3).value or 0) + 1
         main.cell(row, 4).value = (main.cell(row, 4).value or 0) + 1
@@ -135,23 +155,33 @@ async def generate_nirf_2026_excel(db: AsyncSession, academic_year: str) -> byte
         if _enum(student.category) == "ews": main.cell(row, 8).value = (main.cell(row, 8).value or 0) + 1
         if _enum(student.category) in {"sc", "st", "obc"}: main.cell(row, 9).value = (main.cell(row, 9).value or 0) + 1
 
-    # Placement summary, grouped by the same program categories as the template.
-    outcomes = {program.id: {"placed": [], "higher": 0, "lateral": 0} for program in programs}
+    # Placement summary, grouped by the same (level, duration) categories as
+    # the template. Placements/HigherStudy still carry program_id (out of
+    # scope for this change), so we group those by looking their program up
+    # and mapping it to a (level, duration) key; if a placement/higher-study
+    # row has no program on file, it's counted against the same "Other"
+    # bucket (row 78) as an unmatched program used to fall into.
+    program_key_by_id = {program.id: (_enum(program.level), program.duration_years) for program in programs}
+    outcomes: dict[tuple, dict] = defaultdict(lambda: {"placed": [], "higher": 0, "lateral": 0})
     for placement in placements:
-        if placement.program_id in outcomes: outcomes[placement.program_id]["placed"].append(placement)
+        key = program_key_by_id.get(placement.program_id)
+        if key: outcomes[key]["placed"].append(placement)
     for higher in higher_studies:
-        if higher.program_id in outcomes: outcomes[higher.program_id]["higher"] += 1
+        key = program_key_by_id.get(higher.program_id)
+        if key: outcomes[key]["higher"] += 1
     for student in students:
-        if student.program_id in outcomes and student.is_lateral: outcomes[student.program_id]["lateral"] += 1
+        key = (_enum(student.level), student.duration_years)
+        if student.is_lateral: outcomes[key]["lateral"] += 1
     placement_rows = {("ug", 6): 51, ("ug", 5): 54, ("ug", 4): 57, ("ug", 3): 60,
                       ("pg", 3): 63, ("pg", 2): 66, ("pg", 1): 69, ("diploma", 3): 75}
     for program in programs:
-        row = placement_rows.get((_enum(program.level), program.duration_years), 78)
-        placed = outcomes[program.id]["placed"]
+        key = (_enum(program.level), program.duration_years)
+        row = placement_rows.get(key, 78)
+        placed = outcomes[key]["placed"]
         salaries = [p.package_lpa * 100000 for p in placed if p.package_lpa is not None]
         values = {2: academic_year, 3: program.intake_sanctioned, 4: program.intake_actual, 5: academic_year,
-                  6: outcomes[program.id]["lateral"], 7: academic_year, 8: len(placed) + outcomes[program.id]["higher"],
-                  9: len(placed), 10: outcomes[program.id]["higher"], 11: sorted(salaries)[len(salaries)//2] if salaries else None}
+                  6: outcomes[key]["lateral"], 7: academic_year, 8: len(placed) + outcomes[key]["higher"],
+                  9: len(placed), 10: outcomes[key]["higher"], 11: sorted(salaries)[len(salaries)//2] if salaries else None}
         for col, value in values.items():
             if value is not None: main.cell(row, col).value = (main.cell(row, col).value or 0) + value if isinstance(value, (int, float)) else value
 
@@ -167,6 +197,27 @@ async def generate_nirf_2026_excel(db: AsyncSession, academic_year: str) -> byte
                   min(salaries) if salaries else None, sorted(salaries)[len(salaries)//2] if salaries else None]
         for col, value in enumerate(values, 1):
             if value is not None: placement_ws.cell(index, col).value = value
+
+    # Ph.D. students currently pursuing (as of the reported academic year),
+    # split full-time vs part-time.
+    phd_current = [s for s in students if _enum(s.level) == "phd" and s.is_active]
+    main.cell(40, 2).value = sum(1 for s in phd_current if s.is_full_time)
+    main.cell(41, 2).value = sum(1 for s in phd_current if not s.is_full_time)
+
+    # Graduated Ph.D. students, one column per year (B=this year, C=1yr
+    # back, D=2yrs back) — matched by graduation_year against each
+    # academic year's starting year (e.g. "2024-25" -> 2024). Always a
+    # fresh query, never the is_active-filtered `students` list above —
+    # a graduated student is typically marked inactive, so reusing that
+    # list would silently exclude every graduate from their own year.
+    grad_years = _prior_academic_years(academic_year, 3)
+    for col, year in enumerate(grad_years, start=2):
+        year_start = int(year.split("-")[0])
+        grads_this_year = (await db.execute(select(Student).where(
+            Student.level == ProgramLevel.PHD, Student.graduation_year == year_start,
+        ))).scalars().all()
+        main.cell(45, col).value = sum(1 for s in grads_this_year if s.is_full_time)
+        main.cell(46, col).value = sum(1 for s in grads_this_year if not s.is_full_time)
 
     # Research, patents, sponsored projects, consultancy and accredited status.
     publications = (await db.execute(select(ResearchPublication).where(ResearchPublication.academic_year == academic_year))).scalars().all()

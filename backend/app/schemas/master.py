@@ -89,6 +89,7 @@ class FacultyRead(FacultyBase):
     id: uuid.UUID
     created_at: datetime
     updated_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -127,6 +128,7 @@ class ProgramUpdate(BaseModel):
 class ProgramRead(ProgramBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -135,8 +137,11 @@ class ProgramRead(ProgramBase):
 class StudentBase(BaseModel):
     enrollment_no: str = Field(..., max_length=50)
     academic_year: str = Field(..., pattern=r"^\d{4}-\d{2}$")
-    program_id: Optional[uuid.UUID] = None
+    level: ProgramLevel
+    duration_years: int = Field(..., ge=1, le=7)
     department_id: Optional[uuid.UUID] = None
+    is_full_time: bool = True
+    graduation_year: Optional[int] = None
     full_name: str = Field(..., max_length=255)
     gender: Gender
     date_of_birth: Optional[date] = None
@@ -162,6 +167,10 @@ class StudentCreate(StudentBase):
 
 class StudentUpdate(BaseModel):
     department_id: Optional[uuid.UUID] = None
+    level: Optional[ProgramLevel] = None
+    duration_years: Optional[int] = None
+    is_full_time: Optional[bool] = None
+    graduation_year: Optional[int] = None
     full_name: Optional[str] = None
     gender: Optional[Gender] = None
     date_of_birth: Optional[date] = None
@@ -183,6 +192,7 @@ class StudentUpdate(BaseModel):
 class StudentRead(StudentBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -240,6 +250,7 @@ class ResearchPublicationUpdate(BaseModel):
 class ResearchPublicationRead(ResearchPublicationBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -283,6 +294,7 @@ class PatentUpdate(BaseModel):
 class PatentRead(PatentBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -326,6 +338,7 @@ class FundedProjectUpdate(BaseModel):
 class FundedProjectRead(FundedProjectBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -379,6 +392,7 @@ class PlacementUpdate(BaseModel):
 class PlacementRead(PlacementBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -421,6 +435,7 @@ class HigherStudyUpdate(BaseModel):
 class HigherStudyRead(HigherStudyBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -465,6 +480,7 @@ class MoUUpdate(BaseModel):
 class MoURead(MoUBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -518,6 +534,7 @@ class EventUpdate(BaseModel):
 class EventRead(EventBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -566,6 +583,7 @@ class EnergyUpdate(BaseModel):
 class EnergyRead(EnergyBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -604,6 +622,7 @@ class WaterUpdate(BaseModel):
 class WaterRead(WaterBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -645,6 +664,7 @@ class WasteUpdate(BaseModel):
 class WasteRead(WasteBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -689,6 +709,7 @@ class AwardUpdate(BaseModel):
 class AwardRead(AwardBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -724,6 +745,7 @@ class AccreditationUpdate(BaseModel):
 class AccreditationRead(AccreditationBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -757,6 +779,7 @@ class ConsultancyUpdate(BaseModel):
 class ConsultancyRead(ConsultancyBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 
@@ -799,6 +822,7 @@ class SDGActivityUpdate(BaseModel):
 class SDGActivityRead(SDGActivityBase):
     id: uuid.UUID
     created_at: datetime
+    custom_fields: Optional[dict] = None
     model_config = {"from_attributes": True}
 
 

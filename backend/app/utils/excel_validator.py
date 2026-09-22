@@ -62,6 +62,14 @@ QUALIFICATION_MAP = {
     "b.e": "be", "be": "be",
 }
 
+LEVEL_MAP = {
+    "ug": "ug", "undergraduate": "ug", "under graduate": "ug", "bachelor": "ug", "btech": "ug", "be": "ug",
+    "pg": "pg", "postgraduate": "pg", "post graduate": "pg", "master": "pg", "mtech": "pg", "me": "pg", "mba": "pg",
+    "diploma": "diploma",
+    "phd": "phd", "doctorate": "phd", "ph.d": "phd",
+    "certificate": "certificate", "cert": "certificate",
+}
+
 CATEGORY_MAP = {
     "general": "general", "gen": "general", "open": "general",
     "obc": "obc", "other backward class": "obc",
@@ -122,6 +130,7 @@ VALUE_MAPS: dict[str, dict] = {
     "employment_type": EMPLOYMENT_MAP,
     "qualification": QUALIFICATION_MAP,
     "category": CATEGORY_MAP,
+    "level": LEVEL_MAP,
     "indexing": INDEXING_MAP,
     "status": PATENT_STATUS_MAP,
     "placement_type": PLACEMENT_TYPE_MAP,
@@ -149,7 +158,7 @@ class ValidationResult:
 
 
 class ExcelValidator:
-    def __init__(self, entity_type: str, academic_year: str, mode: str = "insert"):
+    def __init__(self, entity_type: str, academic_year: str, mode: str = "insert", custom_columns: list | None = None):
         self.entity_type = entity_type
         self.academic_year = academic_year
         self.mode = mode
@@ -157,6 +166,15 @@ class ExcelValidator:
         self.aliases = get_all_aliases(entity_type)
         self.required = get_required_fields(entity_type)
         self.natural_keys = get_natural_keys(entity_type)
+
+        # Admin-added "+ Add Column" fields (see custom_column.py). They have
+        # no ColumnSpec — matched purely by their saved label — and their
+        # values are never required, just carried through into a nested
+        # custom_fields dict for db_inserter.py to merge onto the record.
+        self.custom_columns = custom_columns or []
+        for col in self.custom_columns:
+            self.aliases[col.label.strip().lower()] = col.field_key
+            self.aliases[col.field_key.lower()] = col.field_key
 
         # In "update" mode, only the natural key(s) (e.g. enrollment_no) are
         # required — every other column becomes optional, so a file containing
@@ -229,6 +247,17 @@ class ExcelValidator:
                         row_errors.append(RowError(row_num, spec.db_field, raw, "Required field is empty"))
                 except ValueError as e:
                     row_errors.append(RowError(row_num, spec.db_field, raw, str(e)))
+
+            custom_values: dict[str, str] = {}
+            for col in self.custom_columns:
+                if col.field_key not in df.columns:
+                    continue
+                raw = row.get(col.field_key)
+                if raw is None or (isinstance(raw, float) and pd.isna(raw)) or str(raw).strip() in ("", "nan", "NaN", "None"):
+                    continue
+                custom_values[col.field_key] = str(raw).strip()
+            if custom_values:
+                clean["_custom_fields"] = custom_values
 
             if row_errors:
                 result.errors.extend(row_errors)

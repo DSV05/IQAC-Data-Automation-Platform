@@ -15,7 +15,7 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.upload import UploadEntityType, UploadJob, UploadStatus
 from app.models.user import Department, User
-from app.models.student import Program
+from app.models.custom_column import CustomColumnDef
 from app.repositories.upload import UploadRepository
 from app.utils.db_inserter import insert_rows
 from app.utils.excel_validator import ExcelValidator, RowError
@@ -97,7 +97,10 @@ class UploadService:
 
         # 6. Validate
         try:
-            validator = ExcelValidator(entity_type, academic_year, mode=mode)
+            custom_columns = (await self.db.execute(
+                select(CustomColumnDef).where(CustomColumnDef.entity_type == entity_type)
+            )).scalars().all()
+            validator = ExcelValidator(entity_type, academic_year, mode=mode, custom_columns=custom_columns)
             result = validator.validate(str(file_path))
             await self._resolve_relationships(result, entity_type, academic_year)
         except ValueError as e:
@@ -193,11 +196,15 @@ class UploadService:
         }
 
     async def _resolve_relationships(self, result, entity_type: str, academic_year: str) -> None:
-        """Resolve spreadsheet department/program names or codes to database IDs.
+        """Resolve spreadsheet department names or codes to database IDs.
 
-        These fields are deliberately per-row. This lets a single workbook
-        contain multiple departments and gives the operator actionable errors
+        This is deliberately per-row. This lets a single workbook contain
+        multiple departments and gives the operator actionable errors
         instead of silently skipping rows that would violate a foreign key.
+
+        Students no longer link to a Program record — they carry their own
+        Level and Duration fields directly (see column_maps.py), so there's
+        nothing to resolve for them beyond department.
         """
         department_entities = {
             "faculty", "students", "research", "patents", "placements",
@@ -212,16 +219,6 @@ class UploadService:
             for department in departments
             for key in (department.name.strip().casefold(), department.code.strip().casefold())
         }
-        programs_by_key: dict[tuple[str, str], Program] = {}
-        if entity_type == "students":
-            programs = (await self.db.execute(
-                select(Program).where(Program.academic_year == academic_year)
-            )).scalars().all()
-            programs_by_key = {
-                (str(program.department_id), key): program
-                for program in programs
-                for key in (program.name.strip().casefold(), program.code.strip().casefold())
-            }
 
         valid_rows: list[dict] = []
         for row in result.valid_rows:
@@ -237,19 +234,6 @@ class UploadService:
                 row_errors.append(RowError(row_number, "department", department_value or "", "Department is required for a new record"))
             elif department:
                 row["department_id"] = department.id
-
-            if entity_type == "students":
-                program_value = row.get("program")
-                program = (
-                    programs_by_key.get((str(department.id), str(program_value).strip().casefold()))
-                    if department and program_value else None
-                )
-                if program_value and department and not program:
-                    row_errors.append(RowError(row_number, "program", program_value, "Program name or code was not found for the selected department and academic year"))
-                elif is_new and not program:
-                    row_errors.append(RowError(row_number, "program", program_value or "", "Program is required for a new student record"))
-                elif program:
-                    row["program_id"] = program.id
 
             if row_errors:
                 result.errors.extend(row_errors)

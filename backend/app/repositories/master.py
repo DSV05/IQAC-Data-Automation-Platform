@@ -116,7 +116,7 @@ class StudentRepository(BaseRepository[Student]):
         self,
         academic_year: str,
         department_id: uuid.UUID | None = None,
-        program_id: uuid.UUID | None = None,
+        level: str | None = None,
         page: int = 1,
         size: int = 20,
         search: str | None = None,
@@ -124,8 +124,8 @@ class StudentRepository(BaseRepository[Student]):
         filters = [Student.academic_year == academic_year]
         if department_id:
             filters.append(Student.department_id == department_id)
-        if program_id:
-            filters.append(Student.program_id == program_id)
+        if level:
+            filters.append(Student.level == level)
         if search:
             p = f"%{search}%"
             filters.append(

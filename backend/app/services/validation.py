@@ -76,7 +76,7 @@ class ValidationEngine:
         self._check_orphan_departments(projects, "funded_projects", "title", dept_by_id)
 
         self._check_faculty(faculty)
-        self._check_students(students, program_by_id)
+        self._check_students(students)
         self._check_programs(programs)
         self._check_placements(placements, program_by_id)
         self._check_research(publications, patents, projects)
@@ -213,33 +213,18 @@ class ValidationEngine:
 
     # -- Students ----------------------------------------------------------
 
-    def _check_students(self, students: list[Student], program_by_id: dict):
+    def _check_students(self, students: list[Student]):
         seen_identity: dict[tuple[str, str], list] = defaultdict(list)
 
         for s in students:
             seen_identity[(s.enrollment_no, s.academic_year)].append(s)
 
-            # program_id is nullable (bulk upload doesn't require it)
-            if s.program_id is not None:
-                program = program_by_id.get(s.program_id)
-                if program is None:
-                    self._add(
-                        "students", s, IssueSeverity.WARNING, IssueType.ORPHAN_REFERENCE,
-                        "References a program that no longer exists.",
-                        field="program_id", identifier=s.enrollment_no,
-                    )
-                elif s.department_id is not None and program.department_id != s.department_id:
-                    self._add(
-                        "students", s, IssueSeverity.WARNING, IssueType.INCONSISTENT_REFERENCE,
-                        f"Student's department does not match the department of program '{program.code}'.",
-                        field="department_id", identifier=s.enrollment_no,
-                    )
-                elif s.current_year and program.duration_years and s.current_year > program.duration_years:
-                    self._add(
-                        "students", s, IssueSeverity.WARNING, IssueType.LOGICAL_INCONSISTENCY,
-                        f"Current year ({s.current_year}) exceeds program duration ({program.duration_years} yrs).",
-                        field="current_year", identifier=s.enrollment_no,
-                    )
+            if s.current_year and s.duration_years and s.current_year > s.duration_years:
+                self._add(
+                    "students", s, IssueSeverity.WARNING, IssueType.LOGICAL_INCONSISTENCY,
+                    f"Current year ({s.current_year}) exceeds course duration ({s.duration_years} yrs).",
+                    field="current_year", identifier=s.enrollment_no,
+                )
 
             if s.cgpa is not None and not (0 <= s.cgpa <= 10):
                 self._add(

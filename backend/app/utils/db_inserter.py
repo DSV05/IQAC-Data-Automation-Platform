@@ -51,7 +51,7 @@ _REPO_MAP: dict[str, type] = {
 # foreign-key violation.
 _INSERT_REQUIRES: dict[str, list[str]] = {
     "faculty": ["department_id"],
-    "students": ["department_id", "program_id"],
+    "students": ["department_id"],
     "research": ["department_id"],
     "patents": ["department_id"],
     "placements": ["department_id"],
@@ -87,7 +87,7 @@ async def insert_rows(
         # SQLAlchemy's model constructor/update calls.
         row.pop("_row_number", None)
         row.pop("department", None)
-        row.pop("program", None)
+        custom_values = row.pop("_custom_fields", None)
         record_id_raw = row.pop("_record_id", None)
         record_id: uuid.UUID | None = None
         if record_id_raw:
@@ -105,6 +105,10 @@ async def insert_rows(
                 k: v for k, v in row.items()
                 if k != "academic_year" and getattr(existing, k, object()) != v
             }
+            if custom_values:
+                merged_custom = {**(existing.custom_fields or {}), **custom_values}
+                if merged_custom != (existing.custom_fields or {}):
+                    changed["custom_fields"] = merged_custom
             if changed:
                 await repo.update(existing, **changed)
                 updated += 1
@@ -119,6 +123,8 @@ async def insert_rows(
             # rest of the batch proceeds normally.
             skipped += 1
             continue
+        if custom_values:
+            row["custom_fields"] = custom_values
         try:
             async with db.begin_nested():
                 await repo.create(**row)

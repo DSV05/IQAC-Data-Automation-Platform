@@ -144,14 +144,14 @@ async def delete_faculty(
 async def list_students(
     academic_year: str = Query(...),
     department_id: Optional[uuid.UUID] = None,
-    program_id: Optional[uuid.UUID] = None,
+    level: Optional[str] = None,
     search: Optional[str] = None,
     page: int = 1, size: int = 20,
     current_user: User = Depends(require_permission("students:read")),
     db: AsyncSession = Depends(get_db),
 ):
     repo = StudentRepository(db, actor=current_user)
-    items, total = await repo.list_by_year(academic_year, department_id, program_id, page, size, search)
+    items, total = await repo.list_by_year(academic_year, department_id, level, page, size, search)
     import math
     return s.PaginatedStudents(
         items=[s.StudentRead.model_validate(i) for i in items],

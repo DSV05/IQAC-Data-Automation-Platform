@@ -18,12 +18,13 @@ import {
   Zap, Droplets, Trash2, Award, Handshake,
   CalendarDays, Leaf, ChevronRight, Pencil, X, RefreshCw,
   Search, Download, Settings2, AlertCircle,
-  CheckCircle2,
+  CheckCircle2, Plus, Trash,
 } from "lucide-react";
 import apiClient from "@/services/api";
 import { useAuthStore } from "@/store/auth.store";
 import { hasMinimumRole } from "@/utils/roles";
 import ExcelFilterTable from "@/components/master/ExcelFilterTable";
+import { customColumnsService, type CustomColumnItem } from "@/services/custom-columns.service";
 
 // ── Academic years ─────────────────────────────────────────────────────────────
 const YEARS = ["2024-25", "2023-24", "2022-23", "2021-22", "2020-21"];
@@ -116,6 +117,10 @@ const COLUMNS: Record<string, { key: string; label: string; required?: boolean; 
     { key: "enrollment_no",        label: "Enrollment No",     required: true },
     { key: "full_name",            label: "Full Name",         required: true },
     { key: "department_name",      label: "Department",        templated: false },
+    { key: "level",                label: "Level",             required: true, render: (v) => v ? <span className="uppercase text-xs font-medium">{v}</span> : "—" },
+    { key: "duration_years",       label: "Duration (Yrs)",    required: true, render: (v) => v ?? "—" },
+    { key: "is_full_time",         label: "Full Time",         render: (v) => v === false ? "Part Time" : "Full Time" },
+    { key: "graduation_year",      label: "Graduation Year",   render: (v) => v ?? "—" },
     { key: "gender",               label: "Gender",            required: true, render: (v) => <span className="capitalize">{v}</span> },
     { key: "year_of_admission",    label: "Admission Year",    required: true },
     { key: "current_year",         label: "Current Year",      required: true },
@@ -297,6 +302,10 @@ const EDITABLE_ENTITY_FIELDS: Record<string, EditFieldDef[]> = {
   students: [
     { key: "full_name",     label: "Full Name",         type: "text" },
     { key: "department_id", label: "Department",        type: "department" },
+    { key: "level",          label: "Level",             type: "select", options: ["ug","pg","diploma","phd","certificate"] },
+    { key: "duration_years", label: "Duration (Yrs)",    type: "number" },
+    { key: "is_full_time",   label: "Full Time (PhD)",   type: "select", options: ["true","false"] },
+    { key: "graduation_year",label: "Graduation Year",   type: "number" },
     { key: "gender",         label: "Gender",            type: "select", options: ["male","female","other"] },
     { key: "date_of_birth",  label: "Date of Birth",     type: "date" },
     { key: "category",       label: "Category",          type: "select", options: ["general","obc","sc","st","ews","pwd"] },
@@ -717,10 +726,26 @@ function EntityTable({ entity, year, search, canEdit }: {
   const allCustomLabels = loadCustomLabels();
   const customLabels = allCustomLabels[entity] ?? {};
   const baseCols = COLUMNS[entity] ?? [];
-  const columns = baseCols.map((c) => ({
-    ...c,
-    label: customLabels[c.key] ?? c.label,
-  }));
+
+  // Admin-added "+ Add Column" fields (see Edit Template modal) — their
+  // values live in each record's custom_fields JSONB, so they're appended
+  // as extra table columns and flattened onto each row below.
+  const { data: customColumnDefs = [] } = useQuery<CustomColumnItem[]>({
+    queryKey: ["custom-columns", entity],
+    queryFn: () => customColumnsService.list(entity),
+  });
+
+  const columns = [
+    ...baseCols.map((c) => ({
+      ...c,
+      label: customLabels[c.key] ?? c.label,
+    })),
+    ...customColumnDefs.map((c) => ({
+      key: c.field_key,
+      label: c.label,
+      render: (v: any) => v ?? "—",
+    })),
+  ];
 
   const editFields = EDITABLE_ENTITY_FIELDS[entity];
 
@@ -734,6 +759,7 @@ function EntityTable({ entity, year, search, canEdit }: {
 
   const items = (data?.items ?? []).map((item: any) => ({
     ...item,
+    ...(item.custom_fields ?? {}),
     ...(DEPARTMENT_MANAGED_ENTITIES.has(entity) ? {
       department_name: item.department_id ? departmentNames.get(item.department_id) ?? "Unknown department" : "—",
     } : {}),
@@ -854,6 +880,7 @@ function EntityTable({ entity, year, search, canEdit }: {
 function TemplateEditorModal({ entity, entityLabel, onClose }: {
   entity: string; entityLabel: string; onClose: () => void;
 }) {
+  const queryClient = useQueryClient();
   const allLabels = loadCustomLabels();
   const allCols   = COLUMNS[entity] ?? [];
   // Only fields that actually exist in the downloadable template can be
@@ -867,6 +894,34 @@ function TemplateEditorModal({ entity, entityLabel, onClose }: {
     return Object.fromEntries(baseCols.map((c) => [c.key, saved[c.key] ?? c.label]));
   });
   const [saved, setSaved] = useState(false);
+  const [newColumnName, setNewColumnName] = useState("");
+
+  // Admin-added extra columns for this entity — stored server-side so they
+  // show up for every user and survive across devices/browsers, unlike the
+  // relabeling above which is a local display preference.
+  const { data: customColumns = [] } = useQuery<CustomColumnItem[]>({
+    queryKey: ["custom-columns", entity],
+    queryFn: () => customColumnsService.list(entity),
+  });
+
+  const addColumnMutation = useMutation({
+    mutationFn: (label: string) => customColumnsService.add(entity, label),
+    onSuccess: () => {
+      setNewColumnName("");
+      queryClient.invalidateQueries({ queryKey: ["custom-columns", entity] });
+    },
+  });
+
+  const removeColumnMutation = useMutation({
+    mutationFn: (columnId: string) => customColumnsService.remove(entity, columnId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["custom-columns", entity] }),
+  });
+
+  const handleAddColumn = () => {
+    const label = newColumnName.trim();
+    if (!label || addColumnMutation.isPending) return;
+    addColumnMutation.mutate(label);
+  };
 
   const handleSave = () => {
     const updated = { ...loadCustomLabels(), [entity]: labels };
@@ -934,6 +989,49 @@ function TemplateEditorModal({ entity, entityLabel, onClose }: {
               />
             </div>
           ))}
+
+          {/* Custom columns — extra fields added specifically for this Data
+              Category. Included as extra headers in the downloaded template
+              as soon as they're added, no Save needed. */}
+          <div className="pt-3 mt-1 border-t border-border space-y-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase">Custom Columns</span>
+
+            {customColumns.map((col) => (
+              <div key={col.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 border border-border px-3 py-1.5">
+                <span className="text-sm text-foreground">{col.label}</span>
+                <button
+                  onClick={() => removeColumnMutation.mutate(col.id)}
+                  disabled={removeColumnMutation.isPending}
+                  title="Remove column"
+                  className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+                >
+                  <Trash className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newColumnName}
+                onChange={(e) => setNewColumnName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAddColumn(); }}
+                placeholder="New column name…"
+                className="flex-1 rounded-lg border border-input bg-background text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#003087]"
+              />
+              <button
+                onClick={handleAddColumn}
+                disabled={!newColumnName.trim() || addColumnMutation.isPending}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#003087] hover:bg-[#002266] text-white text-sm font-medium transition disabled:opacity-50"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Column
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              New columns appear as an extra header in the downloaded template right away, ready to fill in.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center justify-between px-5 py-4 border-t border-border">

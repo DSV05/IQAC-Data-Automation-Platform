@@ -37,7 +37,6 @@ class Program(BaseModel):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     department: Mapped["Department"] = relationship("Department")  # type: ignore
-    students: Mapped[list["Student"]] = relationship("Student", back_populates="program")
 
     def __repr__(self) -> str:
         return f"<Program {self.code}: {self.name}>"
@@ -56,9 +55,16 @@ class Student(BaseModel):
     # Identity
     enrollment_no: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     academic_year: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
-    program_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("programs.id"), nullable=False, index=True
+    # Replaces the old program_id FK — a student now just carries its own
+    # Level (UG/PG/Diploma/...) and Duration directly, instead of needing an
+    # exact Program code to already exist for the department/year. The
+    # Programs table still exists separately to hold sanctioned/actual
+    # intake numbers for the NIRF template, keyed by (level, duration_years)
+    # — it's no longer linked to individual students.
+    level: Mapped[ProgramLevel] = mapped_column(
+        Enum(ProgramLevel, values_callable=lambda obj: [e.value for e in obj]), nullable=False
     )
+    duration_years: Mapped[int] = mapped_column(Integer, nullable=False)
     department_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("departments.id"), nullable=False, index=True
     )
@@ -92,10 +98,13 @@ class Student(BaseModel):
     # Status
     is_lateral: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Only meaningful for level=phd — feeds the NIRF "Ph.D. Students" and
+    # "Graduated Ph.D. Students" grids, which split full-time vs part-time.
+    is_full_time: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    graduation_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
-    program: Mapped[Program] = relationship("Program", back_populates="students")
     department: Mapped["Department"] = relationship("Department")  # type: ignore
 
     def __repr__(self) -> str:
